@@ -1,0 +1,117 @@
+import { createRouter, createWebHistory } from 'vue-router'
+import { useSession } from '../stores/session'
+
+const router = createRouter({
+  history: createWebHistory(),
+  routes: [
+    {
+      path: '/login',
+      name: 'login',
+      component: () => import('../views/LoginView.vue'),
+      meta: { public: true, title: '登录' },
+    },
+    {
+      path: '/',
+      component: () => import('../components/layout/AppShell.vue'),
+      children: [
+        {
+          path: '',
+          redirect: () => {
+            const { state, isAdmin } = useSession()
+            if (!state.user || !isAdmin.value) return '/login'
+            return '/admin'
+          },
+        },
+        {
+          path: 'admin',
+          name: 'admin-dashboard',
+          component: () => import('../views/admin/DashboardView.vue'),
+          meta: { title: '数据总览', role: 'ADMIN' },
+        },
+        {
+          path: 'admin/assets',
+          name: 'admin-assets',
+          component: () => import('../views/admin/AdminAssetsView.vue'),
+          meta: { title: '素材管理', role: 'ADMIN', wide: true },
+        },
+        {
+          path: 'admin/assets/:id',
+          name: 'admin-asset-detail',
+          component: () => import('../views/admin/AdminAssetDetailView.vue'),
+          meta: { title: '素材详情', role: 'ADMIN' },
+        },
+        {
+          path: 'admin/upload',
+          name: 'admin-upload',
+          component: () => import('../views/admin/UploadView.vue'),
+          meta: { title: '素材入库', role: 'ADMIN' },
+        },
+        {
+          path: 'admin/tasks',
+          name: 'admin-tasks',
+          component: () => import('../views/admin/AdminTasksView.vue'),
+          meta: { title: '任务管理', role: 'ADMIN', wide: true },
+        },
+        {
+          path: 'admin/tasks/:id',
+          name: 'admin-task-detail',
+          component: () => import('../views/admin/AdminTaskDetailView.vue'),
+          meta: { title: '任务详情', role: 'ADMIN' },
+        },
+        {
+          path: 'admin/download-logs',
+          name: 'admin-download-logs',
+          component: () => import('../views/admin/DownloadLogsView.vue'),
+          meta: { title: '下载记录', role: 'ADMIN', wide: true },
+        },
+        {
+          path: 'admin/operation-logs',
+          name: 'admin-operation-logs',
+          component: () => import('../views/admin/OperationLogsView.vue'),
+          meta: { title: '操作日志', role: 'ADMIN', wide: true },
+        },
+        {
+          path: 'admin/accounts',
+          name: 'admin-accounts',
+          component: () => import('../views/admin/AdminAccountsView.vue'),
+          meta: { title: '账号管理', role: 'ADMIN', superAdmin: true, wide: true },
+        },
+      ],
+    },
+    {
+      path: '/:pathMatch(.*)*',
+      name: 'not-found',
+      component: () => import('../views/NotFoundView.vue'),
+      meta: { public: true, title: '页面不存在' },
+    },
+  ],
+  scrollBehavior: () => ({ top: 0 }),
+})
+
+router.beforeEach((to) => {
+  const { state, isAdmin, isSuperAdmin } = useSession()
+
+  if (to.meta.public) {
+    if (state.user && isAdmin.value) return '/admin'
+    return true
+  }
+
+  // 本项目只提供总部管理端，非管理员一律回登录页
+  if (!state.user || !isAdmin.value) {
+    return { path: '/login', query: { redirect: to.fullPath } }
+  }
+
+  // 管理子账号只有唯一超级管理员能查看
+  if (to.meta.superAdmin && !isSuperAdmin.value) {
+    return '/admin'
+  }
+
+  return true
+})
+
+router.afterEach((to) => {
+  const title = (to.meta.title as string | undefined) || '云素材中台'
+  document.title = `${title} · 云素材中台`
+})
+
+export default router

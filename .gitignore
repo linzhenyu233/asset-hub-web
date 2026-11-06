@@ -1,0 +1,41 @@
+# ---------- 依赖与构建产物 ----------
+node_modules
+dist
+dist-ssr
+*.tsbuildinfo
+coverage
+.cache
+
+# ---------- 本地环境变量（含后端地址等内部信息，不入库） ----------
+.env
+.env.local
+.env.*.local
+*.local
+
+# ---------- 日志 ----------
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# ---------- AI 工具与自动化缓存（非项目代码） ----------
+# .codebuddy 是编辑器/插件生成的 AI 规则与工程缓存（约 2MB、200+ 个 md）
+.codebuddy
+# Playwright CLI 的录制产物（截图、页面快照、控制台日志）
+.playwright-cli
+.playwright
+
+# ---------- 编辑器与系统文件 ----------
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+Thumbs.db
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
