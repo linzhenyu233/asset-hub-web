@@ -5,6 +5,7 @@ import { PASSWORD_REQUIRED_EVENT } from '../../api/client'
 import { useSession } from '../../stores/session'
 import BrandMark from '../ui/BrandMark.vue'
 import BaseIcon from '../ui/BaseIcon.vue'
+import AccountDrawer from '../ui/AccountDrawer.vue'
 import ChangePasswordModal from '../ui/ChangePasswordModal.vue'
 
 const route = useRoute()
@@ -15,6 +16,7 @@ const { state, isSuperAdmin, mustChangePassword, isPreview, logout, markPassword
 const collapsed = ref(false)
 const mobileOpen = ref(false)
 const passwordOpen = ref(false)
+const accountOpen = ref(false)
 
 interface NavItem {
   to: string
@@ -136,18 +138,37 @@ watch(
         </div>
 
         <div
-          class="flex items-center gap-2 rounded-control hover:bg-neutral-50 transition-colors"
-          :class="collapsed ? 'flex-col gap-1 p-1' : 'p-2'"
+          class="flex rounded-control"
+          :class="collapsed ? 'flex-col items-center gap-1 p-1' : 'items-center gap-1 p-1'"
         >
-          <span
-            class="w-8 h-8 shrink-0 inline-flex items-center justify-center rounded-pill bg-brand-100 text-brand-600 text-[13px] font-medium"
+          <!-- 点击头像 / 姓名打开账号信息抽屉 -->
+          <button
+            type="button"
+            class="group flex items-center gap-2 min-w-0 flex-1 rounded-control px-1 py-1 text-left
+              transition-colors hover:bg-neutral-50 focus-visible:bg-neutral-50"
+            :class="collapsed ? 'justify-center' : ''"
+            title="查看账号信息"
+            aria-label="查看账号信息"
+            :aria-expanded="accountOpen"
+            @click="accountOpen = true"
           >
-            {{ initial }}
-          </span>
-          <div v-show="!collapsed" class="min-w-0 flex-1">
-            <p class="text-caption font-medium text-neutral-900 truncate">{{ displayName }}</p>
-            <p class="text-micro text-neutral-500 truncate">{{ roleLabel }}</p>
-          </div>
+            <span
+              class="w-8 h-8 shrink-0 inline-flex items-center justify-center rounded-pill bg-brand-100 text-brand-600 text-[13px] font-medium
+                transition-shadow group-hover:shadow-e2"
+            >
+              {{ initial }}
+            </span>
+            <span v-show="!collapsed" class="min-w-0 flex-1 block">
+              <span class="block text-caption font-medium text-neutral-900 truncate">{{ displayName }}</span>
+              <span class="block text-micro text-neutral-500 truncate">{{ roleLabel }}</span>
+            </span>
+            <BaseIcon
+              v-show="!collapsed"
+              name="chevron-right"
+              :size="14"
+              class="text-neutral-400 transition-colors group-hover:text-neutral-600"
+            />
+          </button>
           <button
             type="button"
             class="inline-flex items-center justify-center rounded-control text-neutral-500 hover:bg-neutral-100 hover:text-neutral-700 transition-colors"
@@ -214,6 +235,8 @@ watch(
         </div>
       </main>
     </div>
+
+    <AccountDrawer :open="accountOpen" @close="accountOpen = false" />
 
     <ChangePasswordModal
       :open="passwordModalOpen"
