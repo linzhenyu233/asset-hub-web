@@ -79,6 +79,13 @@ const router = createRouter({
       ],
     },
     {
+      // 员工视角（管理端只读预览）：独立布局，不带管理端侧栏
+      path: '/assets/:id',
+      name: 'employee-asset-detail',
+      component: () => import('../views/employee/AssetDetailView.vue'),
+      meta: { title: '员工视角', role: 'ADMIN' },
+    },
+    {
       path: '/:pathMatch(.*)*',
       name: 'not-found',
       component: () => import('../views/NotFoundView.vue'),
