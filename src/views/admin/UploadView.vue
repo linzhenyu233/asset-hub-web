@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, reactive, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { adminAssetApi, adminTaskApi, categoryApi } from '../../api'
 import type { AssetType, Category, CategoryCode } from '../../api/types'
@@ -12,6 +12,36 @@ import PageHeader from '../../components/ui/PageHeader.vue'
 
 type Mode = 'material' | 'task'
 
+/** 一次最多入库的素材数量：超出会让后端排队过久，也容易误选整个目录 */
+const MAX_MATERIAL_FILES = 30
+/** 超过 50MB 的文件更容易触发网关超时，提前提示 */
+const LARGE_FILE_BYTES = 50 * 1024 * 1024
+
+type EntryStatus = 'idle' | 'inspecting' | 'uploading' | 'done' | 'failed'
+
+interface PickedFile {
+  /** 本地去重键：同名同大小同修改时间视为同一个文件 */
+  key: string
+  file: File
+  /** 素材名称，默认取文件名（去掉扩展名），可逐条修改 */
+  name: string
+  /** 文件头识别结果 */
+  inspection: FileTypeInspection | null
+  inspecting: boolean
+  /** 本次上传使用的素材类型：按真实字节识别 */
+  type: AssetType
+  /** 该文件当前不能上传的原因（格式不支持 / 分类不允许 / 上次上传失败） */
+  error: string
+  /** 本地预览地址（图片/视频用于清单缩略图，ZIP 为空） */
+  previewUrl: string
+  /** 缩略图无法解码时退回类型图标 */
+  thumbBroken: boolean
+  /** 队列状态：决定清单行的底色与状态文案 */
+  status: EntryStatus
+  /** 当前文件的上传百分比 */
+  percent: number
+}
+
 const route = useRoute()
 const router = useRouter()
 const { success } = useToast()
@@ -19,21 +49,33 @@ const { success } = useToast()
 const mode = ref<Mode>('material')
 const categories = ref<Category[]>([])
 const submitting = ref(false)
-const progress = ref<number | null>(null)
 const errorMessage = ref('')
+/** 上一批上传结果的提示（成功后留在本页继续上传） */
+const resultMessage = ref('')
 
 const fileInput = ref<HTMLInputElement | null>(null)
-const selectedFile = ref<File | null>(null)
+const files = ref<PickedFile[]>([])
 const dragging = ref(false)
-/** 文件真实类型识别结果（后端会校验声明与字节是否一致） */
-const inspection = ref<FileTypeInspection | null>(null)
-const inspecting = ref(false)
-let inspectSeq = 0
+/** 正在就地修改的素材名称（点击文件名进入编辑） */
+const editingKey = ref('')
+
+function startRename(item: PickedFile) {
+  if (mode.value !== 'material' || submitting.value) return
+  editingKey.value = item.key
+}
+
+function focusRename(el: unknown) {
+  if (!(el instanceof HTMLInputElement)) return
+  el.focus()
+  el.select()
+}
+
+function finishRename() {
+  editingKey.value = ''
+}
 
 const material = reactive({
-  name: '',
   categoryCode: '' as CategoryCode | '',
-  assetType: 'IMAGE' as AssetType,
 })
 
 const task = reactive({
@@ -46,41 +88,14 @@ const allowedTypes = computed<AssetType[]>(() => {
   return category?.allowedAssetTypes ?? ['IMAGE', 'VIDEO', 'ARCHIVE']
 })
 
-/** 优先按真实字节判断类型，读不到再退回浏览器声明的类型 */
-const effectiveMime = computed(
-  () => inspection.value?.mimeType || selectedFile.value?.type || '',
+const allowedTypeNames = computed(() =>
+  allowedTypes.value
+    .map((type) => (type === 'IMAGE' ? '图片' : type === 'VIDEO' ? '视频' : '活动包'))
+    .join(' / '),
 )
 
-const guessedType = computed<AssetType>(() => {
-  if (!selectedFile.value) return material.assetType
-  if (effectiveMime.value.startsWith('image/')) return 'IMAGE'
-  if (effectiveMime.value.startsWith('video/')) return 'VIDEO'
-  return 'ARCHIVE'
-})
-
-const typeMismatch = computed(
-  () => mode.value === 'material' && selectedFile.value !== null && !allowedTypes.value.includes(guessedType.value),
-)
-
-/**
- * 任务包在后端固定按 CAMPAIGN + ARCHIVE 落库（见 task_publish 校验），
- * 只接受 ZIP；这里按真实字节判断，避免扩展名骗过后端报「分类与文件类型不匹配」。
- */
-const isZipPackage = computed(() => {
-  const file = selectedFile.value
-  if (!file) return false
-  const inspected = inspection.value
-  if (inspected?.actual) return inspected.actual === 'application/zip'
-  const mime = inspected?.mimeType || file.type
-  return mime === 'application/zip' || /\.zip$/i.test(file.name)
-})
-
-const taskTypeMismatch = computed(
-  () => mode.value === 'task' && selectedFile.value !== null && !isZipPackage.value,
-)
-
-/** 两种模式的不匹配都直接挡住提交 */
-const blockingMismatch = computed(() => typeMismatch.value || taskTypeMismatch.value)
+const typeLabel = (type: AssetType) => (type === 'IMAGE' ? '图片' : type === 'VIDEO' ? '视频' : '活动包')
+const iconOfType = (type: AssetType) => (type === 'IMAGE' ? 'image' : type === 'VIDEO' ? 'video' : 'folder')
 
 /** 文件选择框的可选类型：任务包只放 ZIP，素材按当前分类放开 */
 const acceptTypes = computed(() => {
@@ -92,155 +107,314 @@ const acceptTypes = computed(() => {
   return accepts.join(',')
 })
 
-const progressLabel = computed(() => {
-  if (progress.value === null) return ''
-  return progress.value >= 100 ? '文件已上传，正在校验…' : `正在上传 ${progress.value}%`
-})
+const fileLimit = computed(() => (mode.value === 'task' ? 1 : MAX_MATERIAL_FILES))
+const inspectingAny = computed(() => files.value.some((item) => item.inspecting))
+const hasFileError = computed(() => files.value.some((item) => Boolean(item.error)))
+const totalBytes = computed(() => files.value.reduce((sum, item) => sum + item.file.size, 0))
 
-/** 超过 50MB 的文件更容易触发网关超时，提前提示 */
-const LARGE_FILE_BYTES = 50 * 1024 * 1024
-const isLargeFile = computed(() => (selectedFile.value?.size ?? 0) > LARGE_FILE_BYTES)
+/** 清单行底色：上传中浅粉、成功白底带描边、警告浅黄、失败浅红 */
+function rowClass(item: PickedFile): string {
+  if (item.status === 'failed') return 'bg-feedback-danger-bg/60'
+  if (item.error) return 'bg-feedback-warning-bg/70'
+  if (item.status === 'uploading') return 'bg-brand-50'
+  if (item.status === 'done') return 'bg-neutral-0 border border-neutral-100'
+  return 'bg-neutral-25'
+}
 
-function guessFromFile(file: File): AssetType {
-  const mime = inspection.value?.mimeType || file.type
+/** 第二行「大小 · 状态」里的状态文案 */
+function statusText(item: PickedFile): string {
+  if (item.status === 'failed') return item.error || '上传失败'
+  if (item.error) return item.error
+  if (item.status === 'uploading') return item.percent >= 100 ? '正在校验…' : `上传中 ${item.percent}%`
+  if (item.status === 'done') return '上传完成'
+  if (item.status === 'inspecting' || item.inspecting) return '识别中…'
+  return '待上传'
+}
+
+function statusClass(item: PickedFile): string {
+  if (item.status === 'failed') return 'text-feedback-danger'
+  if (item.error) return 'text-feedback-warning'
+  if (item.status === 'uploading') return 'text-brand-600'
+  if (item.status === 'done') return 'text-feedback-success'
+  return 'text-neutral-500'
+}
+
+/** 第二行中间的文件类型：识别到真实格式后显示「JPEG 图片」，否则先按类型显示图片/视频 */
+function fileTypeText(item: PickedFile): string {
+  const actual = item.inspection?.actual
+  if (actual) return mimeLabel(actual)
+  return typeLabel(item.type)
+}
+
+function mimeGuessType(mime: string, filename: string): AssetType {
   if (mime.startsWith('image/')) return 'IMAGE'
   if (mime.startsWith('video/')) return 'VIDEO'
+  if (mime === 'application/zip') return 'ARCHIVE'
+  if (/\.(jpe?g|png|webp|gif|bmp|heic|avif|svg)$/i.test(filename)) return 'IMAGE'
+  if (/\.(mp4|mov|webm|avi|mkv)$/i.test(filename)) return 'VIDEO'
   return 'ARCHIVE'
 }
 
-function syncMaterialType() {
-  const fallback = allowedTypes.value[0] ?? 'IMAGE'
-  if (selectedFile.value) {
-    const guess = guessFromFile(selectedFile.value)
-    material.assetType = allowedTypes.value.includes(guess) ? guess : fallback
-  } else {
-    material.assetType = allowedTypes.value.includes(material.assetType) ? material.assetType : fallback
+function fallbackMimeOf(type: AssetType): string {
+  if (type === 'IMAGE') return 'image/jpeg'
+  if (type === 'VIDEO') return 'video/mp4'
+  return 'application/zip'
+}
+
+/** 逐文件重新校验：格式是否受后端支持、分类是否允许该类型 */
+function validateEntry(entry: PickedFile) {
+  entry.error = ''
+  if (entry.inspecting) return
+  if (entry.inspection?.unsupported) {
+    entry.error = `暂不支持 ${mimeLabel(entry.inspection.actual as string)} 格式，请转为 JPG / PNG / WebP / MP4 / MOV / WebM 或 ZIP`
+    return
+  }
+  if (mode.value === 'material' && !allowedTypes.value.includes(entry.type)) {
+    entry.error = `当前分类不支持${typeLabel(entry.type)}，请更换分类或移除该文件`
+    return
+  }
+  if (mode.value === 'task' && entry.type !== 'ARCHIVE') {
+    entry.error = '活动包必须是 ZIP 压缩包（.zip），请重新选择文件'
   }
 }
 
-watch(
-  () => material.categoryCode,
-  () => syncMaterialType(),
-)
+function revalidateAll() {
+  files.value.forEach((entry) => validateEntry(entry))
+}
+
+watch([() => material.categoryCode, mode], () => revalidateAll())
+
+async function inspectEntry(key: string) {
+  const entry = files.value.find((item) => item.key === key)
+  if (!entry) return
+  const fallbackType = mimeGuessType(entry.file.type, entry.file.name)
+  entry.type = fallbackType
+  const result = await inspectFile(entry.file, fallbackMimeOf(fallbackType))
+  const target = files.value.find((item) => item.key === key)
+  if (!target) return
+  target.inspection = result
+  target.type = mimeGuessType(result.mimeType, target.file.name)
+  target.inspecting = false
+  validateEntry(target)
+  // 识别完成后回到待上传（失败项重试前也走这里）
+  if (target.status === 'inspecting') target.status = 'idle'
+}
+
+function addFiles(list: File[]) {
+  if (submitting.value || list.length === 0) return
+  errorMessage.value = ''
+  resultMessage.value = ''
+
+  if (mode.value === 'task' && list.length > 1) {
+    errorMessage.value = '活动包任务一次只能上传一个 ZIP，已保留第一个文件'
+  }
+
+  const limit = fileLimit.value
+  const accepted: File[] = []
+  for (const file of list) {
+    if (files.value.length + accepted.length >= limit) {
+      errorMessage.value = `单次最多上传 ${limit} 个文件，多余的已忽略`
+      break
+    }
+    const key = `${file.name}:${file.size}:${file.lastModified}`
+    if (files.value.some((item) => item.key === key)) continue
+    if (accepted.some((item) => `${item.name}:${item.size}:${item.lastModified}` === key)) continue
+    accepted.push(file)
+  }
+  if (accepted.length === 0) return
+
+  const entries: PickedFile[] = accepted.map((file) => ({
+    key: `${file.name}:${file.size}:${file.lastModified}`,
+    file,
+    name: file.name.replace(/\.[^.]+$/, ''),
+    inspection: null,
+    inspecting: true,
+    type: mimeGuessType(file.type, file.name),
+    error: '',
+    previewUrl: createPreviewUrl(file),
+    thumbBroken: false,
+    status: 'inspecting',
+    percent: 0,
+  }))
+  files.value = [...files.value, ...entries]
+  entries.forEach((entry) => void inspectEntry(entry.key))
+}
+
+/** 图片/视频用本地 blob 直接出缩略图，ZIP 只显示类型图标 */
+function createPreviewUrl(file: File): string {
+  if (file.type === 'application/zip' || /\.zip$/i.test(file.name)) return ''
+  return URL.createObjectURL(file)
+}
+
+function releasePreview(entry: PickedFile) {
+  if (entry.previewUrl) URL.revokeObjectURL(entry.previewUrl)
+}
+
+/** 视频缩略图取首帧：blob 地址支持 Range，seek 后浏览器才会绘制画面 */
+function seekThumb(event: Event) {
+  const video = event.target as HTMLVideoElement
+  if (video.dataset.seeked) return
+  video.dataset.seeked = '1'
+  try {
+    video.currentTime = Math.min(0.2, (video.duration || 0) / 10)
+  } catch {
+    /* 忽略：无法 seek 时保留浏览器已解码的帧 */
+  }
+}
 
 function pickFile() {
+  if (submitting.value) return
   fileInput.value?.click()
 }
 
 function onFileChange(event: Event) {
   const input = event.target as HTMLInputElement
-  const file = input.files?.[0] ?? null
-  applyFile(file)
+  addFiles([...(input.files ?? [])])
   input.value = ''
-}
-
-async function applyFile(file: File | null) {
-  selectedFile.value = file
-  errorMessage.value = ''
-  inspection.value = null
-  const seq = ++inspectSeq
-
-  if (!file) {
-    inspecting.value = false
-    return
-  }
-
-  if (mode.value === 'material' && !material.name.trim()) {
-    material.name = file.name.replace(/\.[^.]+$/, '')
-  }
-
-  inspecting.value = true
-  const fallback = mode.value === 'task' ? 'application/zip' : 'image/jpeg'
-  const result = await inspectFile(file, fallback)
-  if (seq !== inspectSeq) return
-
-  inspection.value = result
-  inspecting.value = false
-  if (mode.value === 'material') syncMaterialType()
 }
 
 function onDrop(event: DragEvent) {
   dragging.value = false
-  const file = event.dataTransfer?.files?.[0]
-  if (file) applyFile(file)
+  addFiles([...(event.dataTransfer?.files ?? [])])
 }
 
-function clearFile() {
-  selectedFile.value = null
-  inspection.value = null
-  inspecting.value = false
-  inspectSeq += 1
+function removeFile(key: string) {
+  const target = files.value.find((item) => item.key === key)
+  if (target) releasePreview(target)
+  files.value = files.value.filter((item) => item.key !== key)
 }
 
-function switchMode(next: Mode) {
-  if (mode.value === next) return
-  mode.value = next
+function clearFiles() {
+  files.value.forEach(releasePreview)
+  files.value = []
   errorMessage.value = ''
 }
 
+function switchMode(next: Mode) {
+  if (mode.value === next || submitting.value) return
+  mode.value = next
+  errorMessage.value = ''
+  resultMessage.value = ''
+  // 任务包只接受单个 ZIP，切换模式时清掉素材清单避免误上传
+  clearFiles()
+}
+
+onBeforeUnmount(() => files.value.forEach(releasePreview))
+
+const largeFiles = computed(() => files.value.filter((item) => item.file.size > LARGE_FILE_BYTES))
+
 function validate(): string {
-  if (!selectedFile.value) return '请先选择要上传的文件'
-  if (inspection.value?.unsupported) {
-    return `暂不支持 ${mimeLabel(inspection.value.actual as string)} 格式，请转为 JPG / PNG / WebP 图片、MP4 / MOV / WebM 视频或 ZIP 压缩包后再上传`
-  }
+  if (files.value.length === 0) return mode.value === 'task' ? '请选择活动包 ZIP 文件' : '请选择要上传的文件'
+  if (inspectingAny.value) return '正在识别文件类型，请稍候'
+  const broken = files.value.find((item) => item.error)
+  if (broken) return broken.error
   if (mode.value === 'material') {
-    if (!material.name.trim()) return '请填写素材名称'
     if (!material.categoryCode) return '请选择素材分类'
-    if (!allowedTypes.value.includes(material.assetType)) return '当前分类不支持该文件类型'
+    if (files.value.some((item) => !item.name.trim())) return '请为每个素材填写名称'
+    if (files.value.length > MAX_MATERIAL_FILES) return `单次最多上传 ${MAX_MATERIAL_FILES} 个素材`
   } else {
-    if (!isZipPackage.value) return '活动包必须是 ZIP 压缩包（.zip），请重新选择文件'
+    if (files.value.length > 1) return '活动包任务一次只能上传一个 ZIP'
     if (!task.title.trim()) return '请填写任务标题'
     if (!task.content.trim()) return '请填写任务内容'
   }
   return ''
 }
 
+const canSubmit = computed(() => {
+  if (submitting.value || files.value.length === 0) return false
+  if (inspectingAny.value || hasFileError.value) return false
+  if (mode.value === 'material') {
+    return Boolean(material.categoryCode) && files.value.every((item) => item.name.trim().length > 0)
+  }
+  return files.value.length === 1 && Boolean(task.title.trim()) && Boolean(task.content.trim())
+})
+
+const submitLabel = computed(() => {
+  if (submitting.value) return mode.value === 'material' ? '入库中…' : '发布中…'
+  if (mode.value === 'task') return '上传并发布任务'
+  return files.value.length > 1 ? `上传并入库（${files.value.length}）` : '上传并入库'
+})
+
 async function submitMaterial() {
   errorMessage.value = validate()
-  if (errorMessage.value || !selectedFile.value) return
+  if (errorMessage.value) return
 
+  const targets = [...files.value]
   submitting.value = true
-  progress.value = 0
-  try {
-    const session = await runUpload({
-      file: selectedFile.value,
-      purpose: 'MATERIAL',
-      categoryCode: material.categoryCode as CategoryCode,
-      assetType: material.assetType,
-      mimeType: inspection.value?.mimeType,
-      onProgress: (value) => (progress.value = value),
-    })
+  let done = 0
+  const failedKeys: string[] = []
 
-    const result = await adminAssetApi.create({
-      name: material.name.trim(),
-      uploadSessionId: session.id,
-    })
+  // 重试前清掉上一次的失败标记
+  targets.forEach((item) => {
+    item.error = ''
+    item.status = 'idle'
+    item.percent = 0
+  })
 
-    success('素材已入库，可在素材管理中上架')
-    router.push(`/admin/assets/${result.assetId}`)
-  } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : '素材入库失败，请重试'
-  } finally {
-    submitting.value = false
-    progress.value = null
+  for (let index = 0; index < targets.length; index += 1) {
+    const entry = targets[index]
+    entry.status = 'uploading'
+    entry.percent = 0
+    try {
+      const session = await runUpload({
+        file: entry.file,
+        purpose: 'MATERIAL',
+        categoryCode: material.categoryCode as CategoryCode,
+        assetType: entry.type,
+        mimeType: entry.inspection?.mimeType,
+        onProgress: (value) => {
+          entry.percent = value
+        },
+      })
+      await adminAssetApi.create({
+        name: entry.name.trim(),
+        uploadSessionId: session.id,
+      })
+      entry.status = 'done'
+      entry.percent = 100
+      done += 1
+    } catch (error) {
+      entry.status = 'failed'
+      entry.percent = 0
+      entry.error = error instanceof Error ? error.message : '入库失败，请重试'
+      failedKeys.push(entry.key)
+    }
   }
+
+  submitting.value = false
+
+  if (failedKeys.length > 0) {
+    files.value = files.value.filter((item) => failedKeys.includes(item.key))
+    errorMessage.value = `${done} 个素材已入库，${failedKeys.length} 个失败（原因见对应文件行），修正后可直接重试`
+    resultMessage.value = ''
+    return
+  }
+
+  // 成功后留在本页：清空已入库的清单，方便接着选下一批
+  files.value = []
+  resultMessage.value = `已入库 ${done} 个素材，可继续上传，或前往素材库上架`
+  success(`已入库 ${done} 个素材`)
 }
 
 async function submitTask() {
   errorMessage.value = validate()
-  if (errorMessage.value || !selectedFile.value) return
+  const file = files.value[0]
+  if (errorMessage.value || !file) return
 
   submitting.value = true
-  progress.value = 0
+  file.status = 'uploading'
+  file.percent = 0
   try {
     const session = await runUpload({
-      file: selectedFile.value,
+      file: file.file,
       purpose: 'TASK_PACKAGE',
       categoryCode: 'CAMPAIGN',
       // 后端要求任务包固定为 CAMPAIGN + ARCHIVE
       assetType: 'ARCHIVE',
-      mimeType: inspection.value?.mimeType,
-      onProgress: (value) => (progress.value = value),
+      mimeType: file.inspection?.mimeType,
+      onProgress: (value) => {
+        file.percent = value
+      },
     })
 
     const result = await adminTaskApi.create({
@@ -250,13 +424,16 @@ async function submitTask() {
       uploadSessionId: session.id,
     })
 
+    file.status = 'done'
+    file.percent = 100
     success('任务已发布')
     router.push(`/admin/tasks/${result.taskId}`)
   } catch (error) {
+    file.status = 'failed'
+    file.percent = 0
     errorMessage.value = error instanceof Error ? error.message : '任务发布失败，请重试'
   } finally {
     submitting.value = false
-    progress.value = null
   }
 }
 
@@ -269,10 +446,7 @@ async function loadCategories() {
   try {
     const res = await categoryApi.list()
     categories.value = res.items
-    if (!material.categoryCode && res.items.length > 0) {
-      material.categoryCode = res.items[0].code
-      syncMaterialType()
-    }
+    if (!material.categoryCode && res.items.length > 0) material.categoryCode = res.items[0].code
   } catch {
     categories.value = []
   }
@@ -318,35 +492,41 @@ onMounted(() => {
           <span>{{ errorMessage }}</span>
         </div>
 
-        <div v-if="mode === 'material'" class="space-y-5">
+        <div
+          v-if="resultMessage"
+          role="status"
+          class="mb-4 flex items-center gap-2 rounded-control bg-feedback-success-bg px-3.5 py-3 text-[13px] leading-[19px] text-feedback-success"
+        >
+          <BaseIcon name="check" :size="18" />
+          <span class="flex-1">{{ resultMessage }}</span>
+          <button
+            type="button"
+            class="btn btn-ghost btn-sm shrink-0 text-feedback-success hover:bg-neutral-0/60"
+            @click="router.push('/admin/assets')"
+          >
+            <BaseIcon name="arrow-right" :size="14" />
+            查看素材库
+          </button>
+        </div>
+
+        <div v-if="mode === 'material'" class="space-y-4">
+          <h2 class="section-title">基础信息</h2>
           <div>
-            <label class="label" for="material-name">素材名称</label>
-            <input id="material-name" v-model="material.name" class="input" type="text" placeholder="例如：2026 情人节主视觉" maxlength="200" />
-          </div>
-
-          <div class="grid gap-4 sm:grid-cols-2">
-            <div>
-              <label class="label" for="material-category">素材分类</label>
-              <select id="material-category" v-model="material.categoryCode" class="select">
-                <option value="" disabled>请选择分类</option>
-                <option v-for="category in categories" :key="category.code" :value="category.code">
-                  {{ category.name }}
-                </option>
-              </select>
-            </div>
-
-            <div>
-              <label class="label" for="material-type">文件类型</label>
-              <select id="material-type" v-model="material.assetType" class="select">
-                <option v-for="type in allowedTypes" :key="type" :value="type">
-                  {{ type === 'IMAGE' ? '图片' : type === 'VIDEO' ? '视频' : '活动包' }}
-                </option>
-              </select>
-            </div>
+            <label class="label" for="material-category">素材分类</label>
+            <select id="material-category" v-model="material.categoryCode" class="select">
+              <option value="" disabled>请选择分类</option>
+              <option v-for="category in categories" :key="category.code" :value="category.code">
+                {{ category.name }}
+              </option>
+            </select>
+            <p class="help-text">
+              当前分类可上传：{{ allowedTypeNames }}；文件类型按实际内容自动识别，一次最多 {{ MAX_MATERIAL_FILES }} 个。
+            </p>
           </div>
         </div>
 
-        <div v-else class="space-y-5">
+        <div v-else class="space-y-4">
+          <h2 class="section-title">任务信息</h2>
           <div>
             <label class="label" for="task-title">任务标题</label>
             <input id="task-title" v-model="task.title" class="input" type="text" placeholder="例如：情人节活动素材领取" maxlength="200" />
@@ -366,11 +546,30 @@ onMounted(() => {
         </div>
 
         <!-- 文件选择 -->
-        <div class="mt-5">
-          <span class="label">上传文件</span>
+        <div class="mt-6 pt-5 border-t border-neutral-100">
+          <div class="flex items-center justify-between gap-3">
+            <h2 class="section-title">{{ mode === 'task' ? '活动包文件' : '文件清单' }}</h2>
+            <div v-if="files.length > 0" class="flex items-center gap-3">
+              <span class="text-micro text-neutral-500">
+                已选文件 {{ files.length }} · 共 {{ formatBytes(totalBytes) }}
+              </span>
+              <button
+                type="button"
+                class="text-micro text-brand-600 transition-colors hover:text-brand-700 disabled:opacity-40"
+                :disabled="submitting"
+                @click="clearFiles"
+              >
+                清空列表
+              </button>
+            </div>
+          </div>
+
           <div
-            class="rounded-card border-2 border-dashed px-5 py-8 text-center transition-colors cursor-pointer"
-            :class="dragging ? 'border-brand-400 bg-brand-50' : 'border-neutral-200 bg-neutral-25 hover:border-brand-300'"
+            class="mt-3 rounded-card border-2 border-dashed px-5 text-center transition-colors cursor-pointer"
+            :class="[
+              dragging ? 'border-brand-400 bg-brand-50' : 'border-neutral-200 bg-neutral-25 hover:border-brand-300',
+              files.length > 0 ? 'py-3' : 'py-8',
+            ]"
             role="button"
             tabindex="0"
             @click="pickFile"
@@ -379,77 +578,126 @@ onMounted(() => {
             @dragleave.prevent="dragging = false"
             @drop.prevent="onDrop"
           >
-            <div v-if="!selectedFile" class="flex flex-col items-center gap-2 text-neutral-500">
+            <div v-if="files.length === 0" class="flex flex-col items-center gap-2 text-neutral-500">
               <div class="w-12 h-12 rounded-2xl bg-neutral-0 border border-neutral-100 flex items-center justify-center text-neutral-400">
                 <BaseIcon name="upload" :size="22" />
               </div>
               <p class="text-body text-neutral-700">点击选择文件，或拖拽到此处</p>
               <p class="text-micro text-neutral-400">
-                {{ mode === 'task' ? '活动包请压缩为 ZIP，发布后自动解压出包内图片与视频' : '支持图片、视频与活动包' }}
+                {{ mode === 'task' ? '活动包请压缩为 ZIP，发布后自动解压出包内图片与视频' : '支持一次选择多个图片、视频与活动包' }}
               </p>
             </div>
 
-            <div v-else class="flex items-center justify-between gap-4 text-left">
-              <div class="flex items-center gap-3 min-w-0">
-                <div class="w-10 h-10 rounded-control bg-brand-100 text-brand-600 flex items-center justify-center shrink-0">
-                  <BaseIcon
-                    :name="guessedType === 'IMAGE' ? 'image' : guessedType === 'VIDEO' ? 'video' : 'folder'"
-                    :size="18"
-                  />
-                </div>
-                <div class="min-w-0">
-                  <p class="text-body font-medium text-neutral-900 truncate">{{ selectedFile.name }}</p>
-                  <p class="text-micro text-neutral-500">
-                    {{ formatBytes(selectedFile.size) }}
-                    <template v-if="inspection?.actual"> · {{ mimeLabel(inspection.actual) }}</template>
-                  </p>
-                </div>
-              </div>
-              <button type="button" class="btn btn-secondary btn-sm shrink-0" @click.stop="clearFile">移除</button>
+            <div v-else class="flex items-center justify-center gap-1.5 text-neutral-500">
+              <BaseIcon name="plus" :size="14" />
+              <span class="text-caption">
+                {{ mode === 'task' ? '重新选择 ZIP' : '继续添加文件' }}
+              </span>
             </div>
           </div>
 
-          <p v-if="inspecting" class="help-text">正在识别文件类型…</p>
-          <p v-else-if="inspection?.unsupported" class="error-text">
-            文件实际为 {{ mimeLabel(inspection.actual as string) }}，后台不支持该格式，请转换为 JPG / PNG / WebP / MP4 / MOV / WebM 或 ZIP 后再上传。
-          </p>
-          <p v-else-if="inspection?.mismatched" class="help-text">
-            文件实际为 {{ mimeLabel(inspection.actual as string) }}，与扩展名声明的
-            {{ inspection.declared }} 不一致：将按实际类型上传，避免后端校验失败。
-          </p>
+          <!-- 已选文件清单：一行一个文件，底色表达队列状态 -->
+          <ul v-if="files.length > 0" class="mt-3 space-y-2">
+            <li
+              v-for="item in files"
+              :key="item.key"
+              class="group flex items-center gap-3 rounded-control px-3 py-2.5 transition-colors"
+              :class="rowClass(item)"
+            >
+              <div class="relative w-10 h-10 shrink-0 rounded-sm overflow-hidden border border-neutral-100/80 bg-white flex items-center justify-center">
+                <BaseIcon
+                  v-if="!item.previewUrl || item.thumbBroken"
+                  :name="iconOfType(item.type)"
+                  :size="16"
+                  class="text-brand-400"
+                />
+                <img
+                  v-if="item.previewUrl && !item.thumbBroken && item.type === 'IMAGE'"
+                  :src="item.previewUrl"
+                  alt=""
+                  class="absolute inset-0 w-full h-full object-cover bg-white"
+                  @error="item.thumbBroken = true"
+                />
+                <video
+                  v-else-if="item.previewUrl && !item.thumbBroken && item.type === 'VIDEO'"
+                  :src="item.previewUrl"
+                  class="absolute inset-0 w-full h-full object-cover bg-neutral-900"
+                  muted
+                  playsinline
+                  preload="metadata"
+                  @loadeddata="seekThumb($event)"
+                  @error="item.thumbBroken = true"
+                />
+              </div>
 
-          <p v-if="isLargeFile" class="help-text">
-            文件较大（{{ formatBytes(selectedFile?.size) }}），大文件传输受后端与网关超时配置影响；若反复失败请压缩后再上传。
-          </p>
+              <div class="min-w-0 flex-1">
+                <input
+                  v-if="editingKey === item.key"
+                  :ref="focusRename"
+                  v-model="item.name"
+                  class="w-full rounded-sm border border-brand-300 bg-neutral-0 px-1.5 py-0.5 text-caption text-neutral-900 focus:outline-none"
+                  type="text"
+                  maxlength="200"
+                  :aria-label="`${item.file.name} 的素材名称`"
+                  @blur="finishRename"
+                  @keydown.enter.prevent="finishRename"
+                  @keydown.esc.prevent="finishRename"
+                />
+                <p
+                  v-else
+                  class="truncate text-caption font-medium text-neutral-900"
+                  :class="mode === 'material' ? 'cursor-text hover:text-brand-600' : ''"
+                  :title="mode === 'material' ? `点击修改素材名称（原文件 ${item.file.name}）` : item.file.name"
+                  @click="startRename(item)"
+                >
+                  {{ mode === 'material' ? item.name : item.file.name }}
+                </p>
+                <p class="mt-0.5 flex min-w-0 items-center gap-1 text-micro">
+                  <span class="shrink-0 text-neutral-500">{{ formatBytes(item.file.size) }}</span>
+                  <span class="shrink-0 text-neutral-300">·</span>
+                  <span class="shrink-0 text-neutral-500">{{ fileTypeText(item) }}</span>
+                  <span class="shrink-0 text-neutral-300">·</span>
+                  <span
+                    class="truncate"
+                    :class="statusClass(item)"
+                    :title="item.error || statusText(item)"
+                  >
+                    {{ statusText(item) }}
+                  </span>
+                </p>
+              </div>
 
-          <p v-if="typeMismatch" class="error-text">当前分类不支持该文件类型，请更换分类或文件。</p>
-          <p v-else-if="taskTypeMismatch" class="error-text">
-            活动包必须是 ZIP 压缩包，当前文件被识别为
-            {{ mimeLabel(inspection?.actual || selectedFile?.type || '未知类型') }}。
-          </p>
-          <input ref="fileInput" type="file" class="hidden" :accept="acceptTypes" @change="onFileChange" />
-        </div>
+              <button
+                type="button"
+                class="w-7 h-7 shrink-0 inline-flex items-center justify-center rounded-sm text-neutral-400 opacity-0 transition-all
+                  hover:bg-neutral-0/70 hover:text-feedback-danger focus-visible:opacity-100 group-hover:opacity-100 disabled:opacity-30"
+                :disabled="submitting"
+                :title="`移除 ${item.file.name}`"
+                @click="removeFile(item.key)"
+              >
+                <BaseIcon name="close" :size="14" />
+              </button>
+            </li>
+          </ul>
 
-        <!-- 进度 -->
-        <div v-if="submitting" class="mt-5">
-          <div class="flex items-center justify-between text-caption text-neutral-600">
-            <span>{{ progressLabel }}</span>
-            <span class="font-medium text-brand-600">{{ progress ?? 0 }}%</span>
-          </div>
-          <div class="mt-2 h-1.5 rounded-sm bg-neutral-100 overflow-hidden">
-            <div class="h-full bg-brand-500 rounded-sm transition-all duration-200" :style="{ width: `${progress ?? 0}%` }" />
-          </div>
+          <p v-if="largeFiles.length > 0" class="help-text">
+            {{ largeFiles.length }} 个文件超过 50MB，大文件传输受后端与网关超时配置影响；若反复失败请压缩后再上传。
+          </p>
+          <input
+            ref="fileInput"
+            type="file"
+            class="hidden"
+            :accept="acceptTypes"
+            :multiple="mode === 'material'"
+            @change="onFileChange"
+          />
         </div>
 
         <div class="mt-6 flex items-center justify-end gap-2">
           <button type="button" class="btn btn-secondary" :disabled="submitting" @click="router.push(mode === 'material' ? '/admin/assets' : '/admin/tasks')">
             取消
           </button>
-          <button
-            type="submit"
-            class="btn btn-primary"
-            :disabled="submitting || blockingMismatch || inspecting || inspection?.unsupported === true"
-          >
+          <button type="submit" class="btn btn-primary" :disabled="!canSubmit">
             <svg
               v-if="submitting"
               class="animate-spin"
@@ -464,15 +712,7 @@ onMounted(() => {
               <path d="M12 3a9 9 0 1 0 9 9" />
             </svg>
             <BaseIcon v-else :name="mode === 'material' ? 'upload' : 'clipboard'" :size="16" />
-            {{
-              submitting
-                ? mode === 'material'
-                  ? '入库中…'
-                  : '发布中…'
-                : mode === 'material'
-                  ? '上传并入库'
-                  : '上传并发布任务'
-            }}
+            {{ submitLabel }}
           </button>
         </div>
       </form>
@@ -496,9 +736,12 @@ onMounted(() => {
             </li>
             <li class="flex gap-3">
               <span class="w-5 h-5 shrink-0 rounded-pill bg-brand-100 text-brand-600 text-micro font-medium flex items-center justify-center">4</span>
-              {{ mode === 'material' ? '创建素材草稿，随后可上架' : '创建任务与本次活动包' }}
+              {{ mode === 'material' ? '逐个创建素材草稿，随后可上架' : '创建任务与本次活动包' }}
             </li>
           </ol>
+          <p v-if="mode === 'material'" class="mt-3 text-micro text-neutral-400 leading-[16px]">
+            批量上传按文件顺序逐个传输，单个失败不影响其它文件；失败的会留在清单里，可直接重试。
+          </p>
         </div>
 
         <div class="card p-5 bg-feedback-info-bg border-transparent">
