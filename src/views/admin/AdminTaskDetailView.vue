@@ -27,6 +27,8 @@ const claimKeyword = ref('')
 const taskId = String(route.params.id)
 
 const contentLines = computed(() => (task.value?.content ? task.value.content.split('\n') : []))
+/** 活动包解压出的子素材数量（未解包时为 0） */
+const childCount = computed(() => task.value?.activityAsset.children?.length ?? 0)
 
 let keywordTimer: number | undefined
 
@@ -224,6 +226,7 @@ onMounted(() => {
                 {{ task.activityAsset.available ? '可下载' : '已下架' }}
               </span>
               <span class="badge badge-neutral">#{{ task.activityAsset.id }}</span>
+              <span v-if="childCount > 0" class="badge badge-brand">包内 {{ childCount }} 个素材</span>
             </div>
           </div>
         </div>

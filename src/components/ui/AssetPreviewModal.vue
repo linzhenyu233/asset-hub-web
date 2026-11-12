@@ -54,12 +54,12 @@ watch(
 
 <template>
   <BaseModal :open="open" :title="title" :width="760" @close="close">
-    <div class="rounded-card overflow-hidden bg-neutral-900">
-      <div v-if="loading" class="aspect-[16/10] w-full skeleton rounded-none" />
+    <div class="rounded-card overflow-hidden">
+      <div v-if="loading" class="aspect-[16/10] w-full skeleton rounded-none bg-neutral-100" />
 
       <div
         v-else-if="errorMessage"
-        class="aspect-[16/10] w-full flex flex-col items-center justify-center gap-3 px-6 text-center"
+        class="aspect-[16/10] w-full flex flex-col items-center justify-center gap-3 px-6 text-center bg-neutral-900"
       >
         <BaseIcon name="alert" :size="32" class="text-white/70" :stroke-width="1.5" />
         <p class="text-caption text-white/80">{{ errorMessage }}</p>
@@ -69,11 +69,12 @@ watch(
         </button>
       </div>
 
+      <!-- 图片用白底：珠宝素材多为透明 PNG，深色底会把主体衬成黑块 -->
       <img
         v-else-if="preview && isImage"
         :src="src"
         :alt="preview.filename"
-        class="block w-full max-h-[62vh] object-contain mx-auto"
+        class="block w-full max-h-[62vh] object-contain mx-auto bg-white"
       />
 
       <video
@@ -85,7 +86,10 @@ watch(
         preload="metadata"
       />
 
-      <div v-else class="aspect-[16/10] w-full flex items-center justify-center text-caption text-white/70">
+      <div
+        v-else
+        class="aspect-[16/10] w-full flex items-center justify-center text-caption text-white/70 bg-neutral-900"
+      >
         暂不支持该文件类型的在线预览
       </div>
     </div>

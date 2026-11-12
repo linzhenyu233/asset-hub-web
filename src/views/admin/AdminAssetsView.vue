@@ -42,9 +42,12 @@ const categoryDict = computed<Record<string, string>>(() =>
 const {
   thumbs,
   failures,
+  frames,
   load: loadThumbs,
   reset: resetThumbs,
   markBroken,
+  kindOf,
+  revealFrame,
 } = useBatchPreviews()
 
 const hasFilter = computed(
@@ -128,6 +131,123 @@ async function submitDelete() {
     }
   } finally {
     del.submitting = false
+  }
+}
+
+/* ---------------- 批量上架 / 下架（后端只有单条接口，前端并发调用） ---------------- */
+
+const BATCH_CONCURRENCY = 4
+
+const batch = reactive({
+  open: false,
+  action: 'publish' as 'publish' | 'offline',
+  ids: [] as string[],
+  submitting: false,
+  done: 0,
+  finished: false,
+  failures: [] as { assetId: string; message: string }[],
+})
+
+const selectedAssets = computed(() =>
+  items.value.filter((item) => selectedIds.value.includes(item.id)),
+)
+/** 未关联任务的活动包不能独立上架，必须走任务发布流程 */
+function canPublish(asset: AdminAsset): boolean {
+  if (asset.status === 'PUBLISHED') return false
+  return !(asset.assetType === 'ARCHIVE' && !asset.taskId)
+}
+
+/** 批量上架只作用于未上架且可独立上架的素材，批量下架只作用于已上架 */
+const publishableIds = computed(() =>
+  selectedAssets.value.filter((item) => canPublish(item)).map((item) => item.id),
+)
+const offlineableIds = computed(() =>
+  selectedAssets.value.filter((item) => item.status === 'PUBLISHED').map((item) => item.id),
+)
+/** 批量上架不可用时的说明：区分「都已上架」与「活动包需走任务发布」 */
+const emptyPublishHint = computed(() => {
+  const blockedArchive = selectedAssets.value.some(
+    (item) => item.status !== 'PUBLISHED' && item.assetType === 'ARCHIVE' && !item.taskId,
+  )
+  if (blockedArchive) return '未关联任务的活动包需通过任务发布流程上架'
+  return '所选素材均已上架'
+})
+
+function openBatch(action: 'publish' | 'offline') {
+  const ids = action === 'publish' ? publishableIds.value : offlineableIds.value
+  if (ids.length === 0 || batch.submitting) return
+  batch.action = action
+  batch.ids = [...ids]
+  batch.done = 0
+  batch.finished = false
+  batch.failures = []
+  batch.open = true
+}
+
+function batchMessage(error: unknown, id: string): string {
+  if (error instanceof ApiError) {
+    if (error.status === 404) return `#${id} 素材已不存在`
+    return error.message
+  }
+  return error instanceof Error ? error.message : '操作失败'
+}
+
+async function runBatch() {
+  if (batch.submitting || batch.ids.length === 0) return
+  batch.submitting = true
+  batch.done = 0
+  batch.failures = []
+  batch.finished = false
+
+  const queue = [...batch.ids]
+  const total = queue.length
+  const workers = Array.from({ length: Math.min(BATCH_CONCURRENCY, total) }, async () => {
+    while (queue.length > 0) {
+      const id = queue.shift()
+      if (!id) break
+      try {
+        if (batch.action === 'publish') await adminAssetApi.publish(id)
+        else await adminAssetApi.offline(id)
+      } catch (error) {
+        batch.failures.push({ assetId: id, message: batchMessage(error, id) })
+      } finally {
+        batch.done += 1
+      }
+    }
+  })
+  await Promise.all(workers)
+
+  batch.submitting = false
+  batch.finished = true
+
+  const okCount = total - batch.failures.length
+  const verb = batch.action === 'publish' ? '上架' : '下架'
+  if (okCount > 0) {
+    success(`已${verb} ${okCount} 个素材`)
+    // 列表状态需要更新；失败项保留在弹窗里供重试
+    await load()
+  }
+  if (batch.failures.length > 0) {
+    toastError(`${batch.failures.length} 个素材${verb}失败，可在弹窗中重试`)
+    return
+  }
+  batch.open = false
+  selectedIds.value = []
+}
+
+function retryBatchFailures() {
+  if (batch.submitting) return
+  batch.ids = batch.failures.map((item) => item.assetId)
+  runBatch()
+}
+
+/** 处理中不允许关闭弹窗，避免用户误以为已中断 */
+function closeBatch() {
+  if (batch.submitting) return
+  batch.open = false
+  if (batch.finished && batch.failures.length === 0) {
+    selectedIds.value = []
+    load()
   }
 }
 
@@ -360,9 +480,32 @@ onMounted(() => {
       >
         <p class="text-caption text-neutral-600">
           已选择 <span class="font-medium text-neutral-900">{{ selectedIds.length }}</span> 个素材
+          <span v-if="selectedAssets.length > 0" class="text-neutral-400">
+            · 可上架 {{ publishableIds.length }} 个、可下架 {{ offlineableIds.length }} 个
+          </span>
         </p>
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
           <button type="button" class="btn btn-secondary btn-sm" @click="selectedIds = []">取消选择</button>
+          <button
+            type="button"
+            class="btn btn-primary btn-sm"
+            :disabled="publishableIds.length === 0 || batch.submitting"
+            :title="publishableIds.length === 0 ? emptyPublishHint : `上架 ${publishableIds.length} 个素材`"
+            @click="openBatch('publish')"
+          >
+            <BaseIcon name="upload" :size="14" />
+            批量上架{{ publishableIds.length > 0 ? ` (${publishableIds.length})` : '' }}
+          </button>
+          <button
+            type="button"
+            class="btn btn-secondary btn-sm"
+            :disabled="offlineableIds.length === 0 || batch.submitting"
+            :title="offlineableIds.length === 0 ? '所选素材均未上架' : `下架 ${offlineableIds.length} 个素材`"
+            @click="openBatch('offline')"
+          >
+            <BaseIcon name="archive" :size="14" />
+            批量下架{{ offlineableIds.length > 0 ? ` (${offlineableIds.length})` : '' }}
+          </button>
           <button type="button" class="btn btn-danger btn-sm" @click="openDelete(selectedIds)">
             <BaseIcon name="archive" :size="14" />
             批量删除
@@ -422,32 +565,40 @@ onMounted(() => {
                 <div class="flex items-center gap-3 min-w-0">
                   <div
                     class="relative w-10 h-10 shrink-0 rounded-control overflow-hidden flex items-center justify-center text-white/90"
-                    :class="asset.assetType === 'IMAGE' ? 'bg-thumb-rose' : 'bg-thumb-gold'"
+                    :class="thumbs[asset.id] ? 'bg-white' : asset.assetType === 'IMAGE' ? 'bg-thumb-rose' : 'bg-thumb-gold'"
                   >
+                    <BaseIcon
+                      v-if="!thumbs[asset.id]"
+                      :name="asset.assetType === 'IMAGE' ? 'image' : asset.assetType === 'VIDEO' ? 'video' : 'folder'"
+                      :size="18"
+                    />
+                    <BaseIcon
+                      v-else-if="kindOf(asset) === 'VIDEO' && !frames[asset.id]"
+                      :name="asset.assetType === 'ARCHIVE' ? 'folder' : 'video'"
+                      :size="18"
+                      class="text-neutral-300"
+                    />
                     <img
-                      v-if="thumbs[asset.id] && asset.assetType === 'IMAGE'"
+                      v-if="thumbs[asset.id] && kindOf(asset) === 'IMAGE'"
                       :src="thumbs[asset.id]"
                       :alt="asset.name"
-                      class="absolute inset-0 w-full h-full object-cover"
+                      class="absolute inset-0 w-full h-full object-cover bg-white"
                       loading="lazy"
                       @error="markBroken(asset.id)"
                     />
                     <video
-                      v-else-if="thumbs[asset.id] && asset.assetType === 'VIDEO'"
+                      v-else-if="thumbs[asset.id] && kindOf(asset) === 'VIDEO'"
                       :src="thumbs[asset.id]"
-                      class="absolute inset-0 w-full h-full object-cover"
+                      class="absolute inset-0 w-full h-full object-cover bg-neutral-900 transition-opacity duration-200"
+                      :class="frames[asset.id] ? 'opacity-100' : 'opacity-0'"
                       muted
                       playsinline
                       preload="metadata"
+                      @loadeddata="revealFrame(asset.id, $event)"
                       @error="markBroken(asset.id)"
                     />
-                    <BaseIcon
-                      v-else
-                      :name="asset.assetType === 'IMAGE' ? 'image' : asset.assetType === 'VIDEO' ? 'video' : 'folder'"
-                      :size="18"
-                    />
                     <span
-                      v-if="asset.assetType === 'VIDEO' && thumbs[asset.id]"
+                      v-if="kindOf(asset) === 'VIDEO' && frames[asset.id]"
                       class="absolute inset-0 flex items-center justify-center pointer-events-none"
                     >
                       <span class="w-5 h-5 rounded-pill bg-neutral-900/60 flex items-center justify-center">
@@ -489,7 +640,8 @@ onMounted(() => {
                     v-if="asset.status !== 'PUBLISHED'"
                     type="button"
                     class="btn btn-ghost btn-sm"
-                    :disabled="actionId === asset.id"
+                    :disabled="actionId === asset.id || !canPublish(asset)"
+                    :title="canPublish(asset) ? '上架该素材' : '活动包需通过任务发布流程上架'"
                     @click="openConfirm(asset, 'publish')"
                   >
                     上架
@@ -557,6 +709,78 @@ onMounted(() => {
           @click="submitConfirm"
         >
           {{ confirmState.submitting ? '处理中…' : confirmState.action === 'publish' ? '确认上架' : '确认下架' }}
+        </button>
+      </template>
+    </BaseModal>
+
+    <!-- 批量上/下架 -->
+    <BaseModal
+      :open="batch.open"
+      :title="`批量${batch.action === 'publish' ? '上架' : '下架'} ${batch.ids.length} 个素材`"
+      :description="
+        batch.action === 'publish'
+          ? '上架后门店员工可在素材发现中看到并下载这些素材。'
+          : '下架后员工将无法继续下载，已产生的下载记录不会回滚。'
+      "
+      :width="480"
+      @close="closeBatch"
+    >
+      <!-- 进度 -->
+      <div class="space-y-3">
+        <div class="flex items-center justify-between">
+          <p class="text-caption text-neutral-600">
+            {{ batch.finished ? '处理完成' : batch.submitting ? '正在处理…' : '待处理' }}
+          </p>
+          <p class="text-caption text-neutral-500">
+            {{ batch.done }} / {{ batch.ids.length }}
+          </p>
+        </div>
+        <div class="h-1.5 w-full rounded-pill bg-neutral-100 overflow-hidden">
+          <div
+            class="h-full rounded-pill bg-brand-500 transition-all duration-200"
+            :style="{ width: `${batch.ids.length ? Math.round((batch.done / batch.ids.length) * 100) : 0}%` }"
+          />
+        </div>
+
+        <p v-if="batch.finished && batch.failures.length === 0" class="text-caption text-feedback-success">
+          全部素材已{{ batch.action === 'publish' ? '上架' : '下架' }}。
+        </p>
+
+        <ul
+          v-if="batch.failures.length > 0"
+          class="max-h-56 overflow-y-auto rounded-card border border-neutral-100 divide-y divide-neutral-100"
+        >
+          <li v-for="item in batch.failures" :key="item.assetId" class="px-3 py-2">
+            <p class="text-caption text-neutral-900">#{{ item.assetId }}</p>
+            <p class="mt-0.5 text-micro text-feedback-danger">{{ item.message }}</p>
+          </li>
+        </ul>
+      </div>
+
+      <template #footer>
+        <button
+          type="button"
+          class="btn btn-secondary btn-sm"
+          :disabled="batch.submitting"
+          @click="batch.open = false"
+        >
+          {{ batch.finished ? '关闭' : '取消' }}
+        </button>
+        <button
+          v-if="!batch.finished || batch.failures.length > 0"
+          type="button"
+          class="btn btn-sm"
+          :class="batch.action === 'publish' ? 'btn-primary' : 'btn-danger'"
+          :disabled="batch.submitting || (!batch.finished && batch.done > 0)"
+          @click="batch.finished ? retryBatchFailures() : runBatch()"
+        >
+          {{
+            batch.submitting
+              ? '处理中…'
+              : batch.finished
+                ? '重试失败项'
+                : `确认${batch.action === 'publish' ? '上架' : '下架'}`
+          }}
         </button>
       </template>
     </BaseModal>

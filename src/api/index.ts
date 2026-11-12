@@ -106,6 +106,13 @@ export const adminAssetApi = {
   offline: (id: string) =>
     request<AssetResult>(`/admin/assets/${id}/offline`, { method: 'POST', body: {} }),
 
+  /**
+   * 解包已有活动包（v2.10.0）：补充 ZIP 内图片、视频为独立子素材，返回带 children 的详情。
+   * 幂等：已有子素材直接返回，不重复创建。
+   */
+  unpack: (id: string) =>
+    request<AdminAsset>(`/admin/assets/${id}/unpack`, { method: 'POST', body: {} }),
+
   /** 管理员预览图片/视频（含草稿与已下架素材） */
   preview: (id: string) =>
     request<PreviewResult>(`/admin/assets/${id}/preview`, { method: 'POST', body: {} }),

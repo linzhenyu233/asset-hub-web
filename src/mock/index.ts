@@ -102,7 +102,8 @@ function buildAsset(seed: AssetSeed): AdminAsset {
     status: seed.status,
     originalFilename: filename,
     publishedAt: seed.publishedAt,
-    taskId: '',
+    // 活动包都由任务发布流程产生，关联任务；普通素材无任务
+    taskId: seed.type === 'ARCHIVE' ? '1' : '',
     storageProvider: 'OSS',
     fileLocator: {
       bucket: 'shining-house-assets',
@@ -142,10 +143,16 @@ function attachPackageChildren(pkg: AdminAsset) {
       originalFilename: filename,
       publishedAt: pkg.publishedAt,
       taskId: '',
+      parentId: pkg.id,
     }
     packageChildren.set(child.id, child)
     return child
   })
+
+  // v2.10.1：活动包按 ZIP 顺序带封面（第一项可见图片，没有图片再取视频）
+  pkg.cover =
+    pkg.children.find((child) => child.assetType === 'IMAGE') ??
+    pkg.children.find((child) => child.assetType === 'VIDEO')
 }
 
 for (const asset of assets) {
@@ -501,7 +508,8 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
       if (segments.length === 3 && segments[2] === 'previews' && method === 'POST') {
         const ids = Array.isArray(body.assetIds) ? (body.assetIds as unknown[]).map((value) => str(value)) : []
         const items = ids.map((id) => {
-          const asset = assets.find((item) => item.id === id)
+          // 活动包内的子素材也可预览（列表页用它做活动包封面）
+          const asset = assets.find((item) => item.id === id) ?? packageChildren.get(id)
           if (!asset) return { assetId: id, error: { code: 'NOT_FOUND', message: '素材不存在' } }
           if (asset.assetType === 'ARCHIVE') {
             return { assetId: id, error: { code: 'PREVIEW_UNSUPPORTED', message: '该文件类型不支持在线预览' } }
@@ -537,7 +545,7 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
 
       const id = segments[2]
       if (segments.length === 3 && method === 'GET') {
-        const asset = assets.find((item) => item.id === id)
+        const asset = assets.find((item) => item.id === id) ?? packageChildren.get(id)
         if (!asset) throw new Error('素材不存在')
         return asset as unknown as T
       }
@@ -551,7 +559,7 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
       }
 
       if (segments.length === 4 && method === 'POST') {
-        const asset = assets.find((item) => item.id === id)
+        const asset = assets.find((item) => item.id === id) ?? packageChildren.get(id)
         if (!asset) throw new Error('素材不存在')
         const action = segments[3]
         if (action === 'publish') {
@@ -564,8 +572,16 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
           return { assetId: id, status: 'OFFLINE' } as unknown as T
         }
         if (action === 'preview') {
+          // asset 已包含活动包子素材，点缩略图放大也能拿到票据
           if (asset.assetType === 'ARCHIVE') throw new Error('该文件类型不支持在线预览')
           return previewPayload(asset) as unknown as T
+        }
+        if (action === 'unpack') {
+          // 解包只针对顶层活动包，子素材不会出现在 assets 里
+          const pkg = assets.find((item) => item.id === id)
+          if (!pkg || pkg.assetType !== 'ARCHIVE') throw new Error('仅活动包支持解包')
+          if ((pkg.children?.length ?? 0) === 0) attachPackageChildren(pkg)
+          return pkg as unknown as T
         }
       }
     }

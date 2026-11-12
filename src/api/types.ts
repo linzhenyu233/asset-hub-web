@@ -159,11 +159,22 @@ export interface Asset {
   publishedAt: string | null
   taskId: string
   /**
-   * 素材包（文件夹型活动包）内的子素材。
-   * 当前后端 OpenAPI 尚未提供该字段，需后端补充（或在列表/详情接口返回）。
-   * 缺失时前端显示「暂无包内素材」。
+   * ZIP 子素材所属活动包 ID（顶层素材省略）。
+   * 子素材独立走预览/下载接口，但不在素材列表中重复展示。
+   */
+  parentId?: string
+  /**
+   * 活动包详情中解压出的图片、视频子素材（按 ZIP 顺序）。
+   * 旧活动包未解包或没有可预览文件时省略，此时可调用
+   * `POST /admin/assets/{id}/unpack` 补解包。
    */
   children?: Asset[]
+  /**
+   * 活动包（列表与详情）的第一个可见图片/视频子素材（v2.10.1），
+   * 字段与子素材一致，直接用它的 id 申请预览即可当封面；
+   * 未解包或没有可见媒体时省略。员工只会拿到已上架子素材。
+   */
+  cover?: Asset
 }
 
 export interface Locator {

@@ -1,26 +1,72 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { assetApi } from '../../api'
 import { triggerDownload } from '../../api/client'
 import { makeRequestId } from '../../composables/useUpload'
+import { useBatchPreviews } from '../../composables/useBatchPreviews'
 import { useToast } from '../../composables/useToast'
 import type { Asset } from '../../api/types'
 import { assetTypeLabel, formatBytes } from '../../utils/format'
+import AssetPreviewModal from './AssetPreviewModal.vue'
 import BaseIcon from './BaseIcon.vue'
 
 const props = withDefaults(
   defineProps<{
     asset: Asset
     compact?: boolean
+    /** 管理员可对未解包的旧活动包触发解包 */
+    canUnpack?: boolean
+    unpacking?: boolean
+    /** 是否为子素材申请预览票据显示封面（需管理员预览权限） */
+    showThumbnails?: boolean
+    /** 是否允许点击子素材放大预览（需管理员预览权限） */
+    previewable?: boolean
   }>(),
-  { compact: false },
+  { compact: false, canUnpack: false, unpacking: false, showThumbnails: false, previewable: false },
 )
+
+const emit = defineEmits<{ (event: 'unpack'): void }>()
 
 const { success, error: toastError } = useToast()
 
 const children = computed<Asset[]>(() => props.asset.children ?? [])
 const totalSize = computed(() => children.value.reduce((sum, item) => sum + item.fileSize, 0))
 const downloadingId = ref('')
+
+/** 包内缩略图：子素材是独立素材，走批量预览票据（一次请求拿全部） */
+const {
+  thumbs,
+  frames,
+  load: loadThumbs,
+  reset: resetThumbs,
+  markBroken,
+  kindOf,
+  revealFrame,
+} = useBatchPreviews()
+
+watch(
+  () => children.value.map((child) => child.id).join(','),
+  () => {
+    if (!props.showThumbnails || children.value.length === 0) {
+      resetThumbs()
+      return
+    }
+    loadThumbs(children.value)
+  },
+  { immediate: true },
+)
+
+/** 子素材放大预览：弹窗按需申请自己那份预览票据 */
+const previewOpen = ref(false)
+const previewId = ref('')
+const previewTitle = ref('')
+
+function openPreview(child: Asset) {
+  if (!props.previewable || child.status !== 'PUBLISHED') return
+  previewTitle.value = child.name
+  previewId.value = child.id
+  previewOpen.value = true
+}
 
 function iconOf(child: Asset): string {
   if (child.assetType === 'IMAGE') return 'image'
@@ -67,7 +113,7 @@ async function download(child: Asset) {
       <template v-if="totalSize > 0"> · {{ formatBytes(totalSize) }}</template>
     </p>
 
-    <!-- 空：后端尚未返回子素材 -->
+    <!-- 空：旧活动包未解包，或 ZIP 内没有可预览的图片/视频 -->
     <div
       v-if="children.length === 0"
       class="mt-3 rounded-control border border-dashed border-neutral-200 bg-neutral-25 px-4 py-5 text-center"
@@ -75,10 +121,26 @@ async function download(child: Asset) {
       <div class="mx-auto w-10 h-10 rounded-control bg-neutral-100 text-neutral-400 flex items-center justify-center">
         <BaseIcon name="folder" :size="20" />
       </div>
-      <p class="mt-2 text-caption font-medium text-neutral-700">暂无包内素材</p>
-      <p class="mt-1 text-micro text-neutral-400 leading-[16px]">
-        需要后端在素材详情中返回子素材清单（如 children 字段），这里会自动展示并支持逐个下载。
+      <p class="mt-2 text-caption font-medium text-neutral-700">
+        {{ canUnpack ? '该活动包还没有解包' : '暂无包内素材' }}
       </p>
+      <p class="mt-1 text-micro text-neutral-400 leading-[16px]">
+        {{
+          canUnpack
+            ? '解包会被 ZIP 内的图片、视频提取为独立素材，可单独预览与下载；原始 ZIP 仍保留。'
+            : 'ZIP 内没有可预览的图片或视频，原始压缩包仍可下载。'
+        }}
+      </p>
+      <button
+        v-if="canUnpack"
+        type="button"
+        class="btn btn-secondary btn-sm mt-3"
+        :disabled="unpacking"
+        @click="emit('unpack')"
+      >
+        <BaseIcon :name="unpacking ? 'refresh' : 'folder'" :size="14" :class="unpacking ? 'animate-spin' : ''" />
+        {{ unpacking ? '正在解包…' : '解包活动包' }}
+      </button>
     </div>
 
     <!-- 紧凑列表：任务详情侧栏 -->
@@ -89,10 +151,43 @@ async function download(child: Asset) {
         class="flex items-center gap-2 rounded-control border border-neutral-100 px-2.5 py-2"
       >
         <div
-          class="w-8 h-8 shrink-0 rounded-sm flex items-center justify-center text-white/90"
-          :class="thumbClass(child)"
+          class="relative w-8 h-8 shrink-0 rounded-sm overflow-hidden flex items-center justify-center text-white/90"
+          :class="thumbs[child.id] ? 'bg-white' : thumbClass(child)"
         >
-          <BaseIcon :name="iconOf(child)" :size="16" />
+          <BaseIcon v-if="!thumbs[child.id]" :name="iconOf(child)" :size="16" />
+          <BaseIcon
+            v-else-if="kindOf(child) === 'VIDEO' && !frames[child.id]"
+            :name="iconOf(child)"
+            :size="16"
+            class="text-neutral-300"
+          />
+          <img
+            v-if="thumbs[child.id] && kindOf(child) === 'IMAGE'"
+            :src="thumbs[child.id]"
+            :alt="child.name"
+            class="absolute inset-0 w-full h-full object-cover bg-white"
+            loading="lazy"
+            @error="markBroken(child.id)"
+          />
+          <video
+            v-else-if="thumbs[child.id] && kindOf(child) === 'VIDEO'"
+            :src="thumbs[child.id]"
+            class="absolute inset-0 w-full h-full object-cover bg-neutral-900 transition-opacity duration-200"
+            :class="frames[child.id] ? 'opacity-100' : 'opacity-0'"
+            muted
+            playsinline
+            preload="metadata"
+            @loadeddata="revealFrame(child.id, $event)"
+            @error="markBroken(child.id)"
+          />
+          <button
+            v-if="previewable"
+            type="button"
+            class="absolute inset-0 cursor-zoom-in"
+            :title="child.status === 'PUBLISHED' ? `预览 ${child.name}` : '已下架'"
+            :aria-label="`预览 ${child.name}`"
+            @click="openPreview(child)"
+          />
         </div>
         <div class="min-w-0 flex-1">
           <p class="text-[12px] font-medium text-neutral-900 truncate" :title="child.name">{{ child.name }}</p>
@@ -133,8 +228,67 @@ async function download(child: Asset) {
         :key="child.id"
         class="rounded-card border border-neutral-100 overflow-hidden bg-neutral-0"
       >
-        <div class="aspect-[4/3] flex items-center justify-center" :class="thumbClass(child)">
-          <BaseIcon :name="iconOf(child)" :size="28" :stroke-width="1.2" class="text-white/85" />
+        <div
+          class="relative aspect-[4/3] flex items-center justify-center overflow-hidden group"
+          :class="thumbs[child.id] ? 'bg-white' : thumbClass(child)"
+        >
+          <BaseIcon
+            v-if="!thumbs[child.id]"
+            :name="iconOf(child)"
+            :size="28"
+            :stroke-width="1.2"
+            class="text-white/85"
+          />
+          <!-- 视频首帧未就绪时才露占位图标；图片有封面就不显示，避免透明 PNG 透出图标 -->
+          <BaseIcon
+            v-else-if="kindOf(child) === 'VIDEO' && !frames[child.id]"
+            :name="iconOf(child)"
+            :size="28"
+            :stroke-width="1.2"
+            class="text-neutral-300"
+          />
+          <img
+            v-if="thumbs[child.id] && kindOf(child) === 'IMAGE'"
+            :src="thumbs[child.id]"
+            :alt="child.name"
+            class="absolute inset-0 w-full h-full object-contain bg-white"
+            loading="lazy"
+            @error="markBroken(child.id)"
+          />
+          <video
+            v-else-if="thumbs[child.id] && kindOf(child) === 'VIDEO'"
+            :src="thumbs[child.id]"
+            class="absolute inset-0 w-full h-full object-cover bg-neutral-900 transition-opacity duration-200"
+            :class="frames[child.id] ? 'opacity-100' : 'opacity-0'"
+            muted
+            playsinline
+            preload="metadata"
+            @loadeddata="revealFrame(child.id, $event)"
+            @error="markBroken(child.id)"
+          />
+          <span
+            v-if="child.assetType === 'VIDEO'"
+            class="absolute bottom-1.5 left-1.5 inline-flex items-center gap-1 rounded-pill bg-neutral-900/60 px-1.5 py-0.5 text-[10px] leading-[12px] text-white"
+          >
+            <BaseIcon name="video" :size="10" />
+            视频
+          </span>
+          <button
+            v-if="previewable"
+            type="button"
+            class="absolute inset-0 z-10 cursor-zoom-in"
+            :title="child.status === 'PUBLISHED' ? `预览 ${child.name}` : '已下架'"
+            :aria-label="`预览 ${child.name}`"
+            @click="openPreview(child)"
+          >
+            <span
+              class="absolute inset-0 flex items-center justify-center bg-neutral-900/35 opacity-0 group-hover:opacity-100 transition-opacity duration-150"
+            >
+              <span class="w-8 h-8 rounded-pill bg-white/90 text-neutral-700 flex items-center justify-center shadow-sm">
+                <BaseIcon name="eye" :size="16" />
+              </span>
+            </span>
+          </button>
         </div>
         <div class="px-3 py-2">
           <p class="text-[12px] font-medium text-neutral-900 truncate" :title="child.name">{{ child.name }}</p>
@@ -166,5 +320,13 @@ async function download(child: Asset) {
         </div>
       </div>
     </div>
+
+    <!-- 子素材放大预览：票据由弹窗按子素材 ID 自行申请 -->
+    <AssetPreviewModal
+      :open="previewOpen"
+      :asset-id="previewId"
+      :title="previewTitle"
+      @close="previewOpen = false"
+    />
   </div>
 </template>

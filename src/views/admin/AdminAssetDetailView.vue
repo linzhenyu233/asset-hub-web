@@ -41,6 +41,45 @@ const inlineIsVideo = computed(() => preview.value?.mimeType.startsWith('video/'
 
 const confirm = reactive({ open: false, action: 'publish' as 'publish' | 'offline', submitting: false })
 const deleteState = reactive({ open: false, submitting: false })
+const unpacking = ref(false)
+
+/**
+ * 解包接口只支持「已关联任务的活动包」（后端保留原任务与领取记录），
+ * 旧活动包（v2.10.0 之前上传）没有子素材时可手动补解包。
+ */
+const canUnpack = computed(
+  () =>
+    asset.value?.assetType === 'ARCHIVE' &&
+    Boolean(asset.value.taskId) &&
+    (asset.value.children?.length ?? 0) === 0,
+)
+/** 未关联任务的活动包不能独立上架，必须走任务发布流程 */
+const publishBlocked = computed(
+  () => asset.value?.assetType === 'ARCHIVE' && !asset.value.taskId,
+)
+
+async function unpack() {
+  if (!asset.value || unpacking.value || !canUnpack.value) return
+  unpacking.value = true
+  try {
+    asset.value = await adminAssetApi.unpack(asset.value.id)
+    const count = asset.value.children?.length ?? 0
+    if (count > 0) success(`已解包 ${count} 个子素材`)
+    else toastError('ZIP 内没有可提取的图片或视频')
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 413) {
+      toastError('压缩包内容过多或过大，超出解包限制')
+    } else if (error instanceof ApiError && error.status === 409) {
+      toastError('活动包正在处理中，请稍后重试')
+    } else if (error instanceof ApiError && error.status === 400) {
+      toastError(error.message || '压缩包已损坏或包含不支持的文件')
+    } else {
+      toastError(error instanceof Error ? error.message : '解包失败，请重试')
+    }
+  } finally {
+    unpacking.value = false
+  }
+}
 
 async function load() {
   loading.value = true
@@ -142,14 +181,41 @@ onMounted(load)
 
     <div v-else class="grid gap-5 lg:grid-cols-[1fr_400px] items-start">
       <section v-if="asset.assetType === 'ARCHIVE'" class="card p-5">
-        <PackageContents :asset="asset" />
+        <PackageContents
+          :asset="asset"
+          :can-unpack="canUnpack"
+          :unpacking="unpacking"
+          :show-thumbnails="true"
+          :previewable="true"
+          @unpack="unpack"
+        />
+        <div class="mt-4 pt-4 border-t border-neutral-100 space-y-2">
+          <p class="text-micro text-neutral-500 leading-[16px]">
+            子素材可单独预览与下载；活动包下架时子素材同时不可访问。员工须先领取关联任务才能下载包内文件。
+          </p>
+          <div class="flex items-center gap-3">
+            <p class="text-micro text-neutral-400 truncate">原文件名：{{ asset.originalFilename }}</p>
+            <button
+              v-if="canUnpack"
+              type="button"
+              class="btn btn-secondary btn-sm shrink-0"
+              :disabled="unpacking"
+              @click="unpack"
+            >
+              <BaseIcon :name="unpacking ? 'refresh' : 'folder'" :size="14" :class="unpacking ? 'animate-spin' : ''" />
+              {{ unpacking ? '解包中…' : '解包' }}
+            </button>
+          </div>
+        </div>
       </section>
       <section v-else class="card overflow-hidden">
         <div
           class="relative aspect-[4/3] w-full overflow-hidden"
           :class="
             inlineSrc
-              ? 'bg-neutral-900'
+              ? inlineIsVideo
+                ? 'bg-neutral-900'
+                : 'bg-white'
               : asset.assetType === 'IMAGE'
                 ? 'bg-thumb-rose'
                 : 'bg-thumb-gold'
@@ -159,7 +225,7 @@ onMounted(load)
             v-if="inlineSrc && inlineIsImage"
             :src="inlineSrc"
             :alt="asset.name"
-            class="absolute inset-0 w-full h-full object-contain cursor-zoom-in"
+            class="absolute inset-0 w-full h-full object-contain bg-white cursor-zoom-in"
             @click="previewOpen = true"
           />
 
@@ -214,6 +280,8 @@ onMounted(load)
               v-if="asset.status !== 'PUBLISHED'"
               type="button"
               class="btn btn-primary flex-1"
+              :disabled="publishBlocked"
+              :title="publishBlocked ? '活动包必须通过任务发布流程上架' : '上架素材'"
               @click="openConfirm('publish')"
             >
               <BaseIcon name="upload" :size="16" />
@@ -232,6 +300,10 @@ onMounted(load)
               员工视角
             </button>
           </div>
+
+          <p v-if="publishBlocked" class="help-text text-left">
+            该活动包未关联任务，需通过「上传并发布任务」流程上架，无法单独上架。
+          </p>
 
           <div v-if="canPreview" class="mt-2">
             <button type="button" class="btn btn-secondary w-full" @click="previewOpen = true">

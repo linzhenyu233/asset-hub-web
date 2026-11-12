@@ -143,6 +143,10 @@ onMounted(load)
         <div class="grid gap-5 lg:grid-cols-[1fr_360px] items-start">
           <section v-if="asset.assetType === 'ARCHIVE'" class="card p-5">
             <PackageContents :asset="asset" />
+            <p class="mt-4 pt-4 border-t border-neutral-100 text-micro text-neutral-500 leading-[16px]">
+              包内图片、视频可单独下载；活动包下架后包内素材同时不可访问。
+              <template v-if="asset.taskId">请先在任务中心领取关联任务，再下载活动包及包内文件。</template>
+            </p>
           </section>
 
           <section v-else class="card overflow-hidden">
@@ -150,7 +154,9 @@ onMounted(load)
               class="relative aspect-[4/3] w-full overflow-hidden"
               :class="
                 inlineSrc
-                  ? 'bg-neutral-900'
+                  ? inlineIsVideo
+                    ? 'bg-neutral-900'
+                    : 'bg-white'
                   : asset.assetType === 'IMAGE'
                     ? 'bg-thumb-rose'
                     : 'bg-thumb-gold'
@@ -160,7 +166,7 @@ onMounted(load)
                 v-if="inlineSrc && inlineIsImage"
                 :src="inlineSrc"
                 :alt="asset.name"
-                class="absolute inset-0 w-full h-full object-contain cursor-zoom-in"
+                class="absolute inset-0 w-full h-full object-contain bg-white cursor-zoom-in"
                 @click="previewOpen = true"
               />
               <video

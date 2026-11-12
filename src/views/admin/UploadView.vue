@@ -385,7 +385,7 @@ onMounted(() => {
               </div>
               <p class="text-body text-neutral-700">点击选择文件，或拖拽到此处</p>
               <p class="text-micro text-neutral-400">
-                {{ mode === 'task' ? '活动包是文件夹形式' : '支持图片、视频与活动包' }}
+                {{ mode === 'task' ? '活动包请压缩为 ZIP，发布后自动解压出包内图片与视频' : '支持图片、视频与活动包' }}
               </p>
             </div>
 
