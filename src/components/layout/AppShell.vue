@@ -217,7 +217,14 @@ watch(
           </button>
 
           <!-- 唯一顶栏：直接显示当前页面名，靠左 -->
-          <h1 class="min-w-0 flex-1 truncate text-[18px] font-bold text-neutral-900">{{ pageTitle }}</h1>
+          <div class="flex min-w-0 flex-1 items-center gap-2">
+            <!-- 品牌锚点：页头左侧 3px 渐变竖条 -->
+            <span
+              class="h-4 w-[3px] shrink-0 rounded-pill"
+              style="background: linear-gradient(180deg, #e85d8e 0%, #f29cbb 100%)"
+            />
+            <h1 class="min-w-0 truncate text-[18px] font-bold text-neutral-900">{{ pageTitle }}</h1>
+          </div>
 
           <!-- 页面操作按钮由各页 PageHeader 传送到这里 -->
           <div id="topbar-actions" class="flex items-center gap-2 shrink-0"></div>

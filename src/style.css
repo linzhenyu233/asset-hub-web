@@ -176,6 +176,8 @@
 
   .data-table thead th {
     @apply h-11 px-4 bg-neutral-25 text-caption font-medium text-neutral-500 text-left whitespace-nowrap;
+    /* 表头下沿用品牌浅粉细线，代替灰线，给表格一个品牌锚点 */
+    box-shadow: inset 0 -1px 0 #fce0eb;
   }
 
   .data-table tbody td {
@@ -183,16 +185,25 @@
   }
 
   .data-table tbody tr {
-    @apply transition-colors duration-fast;
+    @apply transition-all duration-fast;
   }
 
-  .data-table tbody tr:hover {
-    @apply bg-neutral-50;
+  /* 悬停：左侧偏深、向右淡出，营造「从竖条晕开」的粉感，避免整行平涂 */
+  .data-table tbody tr:hover:not(.is-selected) {
+    background: linear-gradient(90deg, #fce0eb 0%, #fef4f8 45%, #fef4f8 100%);
+    box-shadow: inset 2px 0 0 #f8c2d6;
   }
 
+  /* 选中：深一档粉 + 3px 主色竖条，与悬停拉开层级 */
   .data-table tbody tr.is-selected {
+    @apply bg-brand-100;
     box-shadow: inset 3px 0 0 #e85d8e;
-    @apply bg-brand-50;
+  }
+
+  /* 行内幽灵按钮在粉色行底上要浮起来，避免粉底叠粉块 */
+  .data-table tbody tr:hover .btn-ghost:not(:disabled) {
+    @apply bg-neutral-0;
+    box-shadow: inset 0 0 0 1px #f8c2d6;
   }
 
   /* ---------- Segmented ---------- */

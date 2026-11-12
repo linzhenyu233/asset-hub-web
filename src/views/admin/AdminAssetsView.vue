@@ -544,7 +544,12 @@ onMounted(() => {
             </tr>
           </thead>
           <tbody>
-            <tr v-for="asset in items" :key="asset.id" class="group">
+            <tr
+              v-for="asset in items"
+              :key="asset.id"
+              class="group"
+              :class="{ 'is-selected': selectedIds.includes(asset.id) }"
+            >
               <td>
                 <div
                   class="flex items-center justify-center transition-opacity duration-fast"
