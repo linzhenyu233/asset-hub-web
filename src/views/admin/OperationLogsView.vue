@@ -198,7 +198,7 @@ onMounted(load)
               <td class="text-caption">{{ item.operatorSnapshot || `#${item.operatorId}` }}</td>
               <td class="text-caption">{{ storageLabel(item.storageProvider) }}</td>
               <td>
-                <button type="button" class="btn btn-secondary btn-sm" @click="selected = item">查看</button>
+                <button type="button" class="btn-row" @click="selected = item">查看</button>
               </td>
             </tr>
           </tbody>

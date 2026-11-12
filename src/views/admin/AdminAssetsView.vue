@@ -540,7 +540,7 @@ onMounted(() => {
               <th>状态</th>
               <th>来源</th>
               <th>上架时间</th>
-              <th class="w-56">操作</th>
+              <th class="w-44">操作</th>
             </tr>
           </thead>
           <tbody>
@@ -636,7 +636,7 @@ onMounted(() => {
                 <div class="flex items-center gap-1">
                   <button
                     type="button"
-                    class="btn btn-secondary btn-sm"
+                    class="btn-row"
                     @click="router.push(`/admin/assets/${asset.id}`)"
                   >
                     详情
@@ -644,7 +644,7 @@ onMounted(() => {
                   <button
                     v-if="asset.status !== 'PUBLISHED'"
                     type="button"
-                    class="btn btn-ghost btn-sm"
+                    class="btn-row is-primary"
                     :disabled="actionId === asset.id || !canPublish(asset)"
                     :title="canPublish(asset) ? '上架该素材' : '活动包需通过任务发布流程上架'"
                     @click="openConfirm(asset, 'publish')"
@@ -654,7 +654,7 @@ onMounted(() => {
                   <button
                     v-else
                     type="button"
-                    class="btn btn-secondary btn-sm"
+                    class="btn-row"
                     :disabled="actionId === asset.id"
                     @click="openConfirm(asset, 'offline')"
                   >
@@ -662,7 +662,7 @@ onMounted(() => {
                   </button>
                   <button
                     type="button"
-                    class="btn btn-secondary btn-sm text-feedback-danger hover:bg-feedback-danger-bg"
+                    class="btn-row is-danger"
                     :disabled="actionId === asset.id"
                     @click="openDelete([asset.id])"
                   >

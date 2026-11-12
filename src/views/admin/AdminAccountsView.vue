@@ -256,8 +256,8 @@ onMounted(load)
             <td>
               <button
                 type="button"
-                class="btn btn-sm"
-                :class="account.status === 'ACTIVE' ? 'btn-secondary' : 'btn-ghost'"
+                class="btn-row"
+                :class="account.status === 'ACTIVE' ? 'is-danger' : 'is-primary'"
                 @click="openToggle(account)"
               >
                 {{ account.status === 'ACTIVE' ? '停用' : '启用' }}

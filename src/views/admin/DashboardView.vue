@@ -13,12 +13,48 @@ const errorMessage = ref('')
 
 const kpis = computed(() => {
   if (!data.value) return []
+  const d = data.value
   return [
-    { key: 'task', label: '发布任务数', value: data.value.taskCount, icon: 'clipboard', tone: 'brand' },
-    { key: 'participant', label: '参与员工数', value: data.value.participantCount, icon: 'users', tone: 'info' },
-    { key: 'claim', label: '领取记录数', value: data.value.claimCount, icon: 'check', tone: 'success' },
-    { key: 'download', label: '下载申请数', value: data.value.downloadRequestCount, icon: 'download', tone: 'warning' },
-    { key: 'employee', label: '建档员工数', value: data.value.employeeCount, icon: 'user', tone: 'neutral' },
+    {
+      key: 'task',
+      label: '发布任务数',
+      value: d.taskCount,
+      icon: 'clipboard',
+      tone: 'brand',
+      hint: d.taskCount ? `平均 ${ratio(d.claimCount, d.taskCount)} 人领取` : '还没有发布任务',
+    },
+    {
+      key: 'participant',
+      label: '参与员工数',
+      value: d.participantCount,
+      icon: 'users',
+      tone: 'info',
+      hint: d.employeeCount ? `覆盖 ${percent(d.participantCount, d.employeeCount)}% 建档员工` : '暂无建档员工',
+    },
+    {
+      key: 'claim',
+      label: '领取记录数',
+      value: d.claimCount,
+      icon: 'check',
+      tone: 'success',
+      hint: d.participantCount ? `人均 ${ratio(d.claimCount, d.participantCount)} 次` : '还没有领取记录',
+    },
+    {
+      key: 'download',
+      label: '下载申请数',
+      value: d.downloadRequestCount,
+      icon: 'download',
+      tone: 'warning',
+      hint: d.employeeCount ? `人均 ${ratio(d.downloadRequestCount, d.employeeCount)} 次` : '还没有下载记录',
+    },
+    {
+      key: 'employee',
+      label: '建档员工数',
+      value: d.employeeCount,
+      icon: 'user',
+      tone: 'neutral',
+      hint: d.employeeCount ? `${percent(d.participantCount, d.employeeCount)}% 参与过任务` : '等待员工激活',
+    },
   ]
 })
 
@@ -62,6 +98,41 @@ function percent(value: number, total: number): number {
   return Math.max(0, Math.round((value / total) * 100))
 }
 
+/** 派生口径：除法结果统一保留一位小数，除数为 0 时显示占位符 */
+function ratio(numerator: number, denominator: number): string {
+  if (!denominator) return '—'
+  return (numerator / denominator).toFixed(1)
+}
+
+const publishedTotal = computed(() =>
+  categoryStats.value.reduce((sum, item) => sum + item.published, 0),
+)
+const offlineTotal = computed(() =>
+  categoryStats.value.reduce((sum, item) => sum + item.offline, 0),
+)
+const draftTotal = computed(() => categoryStats.value.reduce((sum, item) => sum + item.draft, 0))
+const publishedRate = computed(() => percent(publishedTotal.value, grandTotal.value))
+
+/** 素材状态环形图：已上架 / 已下架 / 草稿 三段，纯 CSS conic-gradient */
+const ringBackground = computed(() => {
+  const total = grandTotal.value
+  if (!total) return 'conic-gradient(#e9e1e5 0 100%)'
+  const published = (publishedTotal.value / total) * 100
+  const offline = published + (offlineTotal.value / total) * 100
+  return `conic-gradient(#e85d8e 0 ${published}%, #d8ccd2 ${published}% ${offline}%, #e9e1e5 ${offline}% 100%)`
+})
+
+/** 三步上手清单：用现有数据判断哪一步已经完成 */
+const steps = computed(() => {
+  const d = data.value
+  if (!d) return []
+  return [
+    { key: 'upload', label: '导入第一批素材', done: grandTotal.value > 0, to: '/admin/upload', action: '去入库' },
+    { key: 'task', label: '发布活动分发任务', done: d.taskCount > 0, to: '/admin/tasks', action: '去发布' },
+    { key: 'claim', label: '员工领取并下载', done: d.claimCount > 0, to: '/admin/download-logs', action: '看记录' },
+  ]
+})
+
 async function load() {
   loading.value = true
   errorMessage.value = ''
@@ -79,7 +150,7 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="animate-fade-up">
+  <div class="animate-fade-up mx-auto max-w-[1600px]">
     <PageHeader
       title="数据总览"
       :subtitle="data ? `统计截止 ${formatDateTime(data.asOf)}（北京时间）` : '素材、任务与下载的全量汇总'"
@@ -120,22 +191,27 @@ onMounted(load)
     <div v-else-if="data" class="space-y-5">
       <!-- KPI -->
       <div class="grid gap-4 grid-cols-2 lg:grid-cols-5">
-        <div v-for="item in kpis" :key="item.key" class="card p-4">
+        <div v-for="item in kpis" :key="item.key" class="card flex flex-col p-4">
           <div class="w-8 h-8 rounded-control flex items-center justify-center" :class="toneClass[item.tone]">
             <BaseIcon :name="item.icon" :size="16" />
           </div>
           <p class="mt-3 data-num text-[28px] leading-[34px] text-neutral-900">{{ item.value }}</p>
           <p class="mt-0.5 text-caption text-neutral-500">{{ item.label }}</p>
+          <p class="mt-auto truncate border-t border-dashed border-neutral-100 pt-2 text-micro text-neutral-400">
+            {{ item.hint }}
+          </p>
         </div>
       </div>
 
-      <div class="grid gap-5 lg:grid-cols-[1fr_340px] items-start">
+      <div class="grid gap-5 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_380px] items-start">
         <!-- 素材分布 -->
         <section class="card p-6">
           <div class="flex items-center justify-between gap-3">
             <div>
               <h2 class="section-title">素材分类与状态分布</h2>
-              <p class="mt-1 text-caption text-neutral-500">共 {{ grandTotal }} 份素材</p>
+              <p class="mt-1 text-caption text-neutral-500">
+                共 {{ grandTotal }} 份素材 · 上架率 {{ publishedRate }}%
+              </p>
             </div>
             <div class="flex items-center gap-3 text-micro text-neutral-500">
               <span class="inline-flex items-center gap-1">
@@ -179,20 +255,74 @@ onMounted(load)
           </div>
         </section>
 
-        <!-- 说明卡 -->
         <aside class="space-y-4">
-          <div class="card p-5 bg-brand-50 border-brand-100">
+          <!-- 素材状态构成 -->
+          <div class="card p-5">
+            <div class="flex items-center justify-between gap-3">
+              <h2 class="section-title">素材状态构成</h2>
+              <span class="badge badge-brand shrink-0">上架率 {{ publishedRate }}%</span>
+            </div>
+            <div class="mt-4 flex items-center gap-5">
+              <div
+                class="relative w-[116px] h-[116px] shrink-0 rounded-pill"
+                :style="{ background: ringBackground }"
+              >
+                <div class="absolute inset-[13px] rounded-pill bg-neutral-0 flex flex-col items-center justify-center">
+                  <span class="data-num text-[20px] leading-[24px] text-neutral-900">{{ grandTotal }}</span>
+                  <span class="text-micro text-neutral-500">份素材</span>
+                </div>
+              </div>
+              <ul class="min-w-0 flex-1 space-y-2.5 text-caption">
+                <li class="flex items-center justify-between gap-2">
+                  <span class="inline-flex items-center gap-1.5 text-neutral-600">
+                    <span class="w-2 h-2 rounded-xs bg-brand-500" />已上架
+                  </span>
+                  <span class="font-medium text-neutral-900">{{ publishedTotal }}</span>
+                </li>
+                <li class="flex items-center justify-between gap-2">
+                  <span class="inline-flex items-center gap-1.5 text-neutral-600">
+                    <span class="w-2 h-2 rounded-xs bg-neutral-300" />已下架
+                  </span>
+                  <span class="font-medium text-neutral-900">{{ offlineTotal }}</span>
+                </li>
+                <li class="flex items-center justify-between gap-2">
+                  <span class="inline-flex items-center gap-1.5 text-neutral-600">
+                    <span class="w-2 h-2 rounded-xs bg-neutral-200" />草稿
+                  </span>
+                  <span class="font-medium text-neutral-900">{{ draftTotal }}</span>
+                </li>
+              </ul>
+            </div>
+          </div>
+
+          <!-- 三步上手 -->
+          <div class="card p-5">
             <div class="flex items-center gap-2 text-brand-700">
               <BaseIcon name="sparkles" :size="16" />
-              <span class="text-caption font-medium">开展一次活动分发</span>
+              <span class="text-caption font-medium">三步完成一次分发</span>
             </div>
-            <p class="mt-2 text-caption text-brand-700/80 leading-[18px]">
-              在「素材入库」上传活动包，再到「任务管理」发布任务，员工即可在门店端一键领取与下载。
-            </p>
-            <div class="mt-3 flex gap-2">
-              <RouterLink to="/admin/upload" class="btn btn-primary btn-sm">去入库</RouterLink>
-              <RouterLink to="/admin/tasks" class="btn btn-secondary btn-sm">去发布任务</RouterLink>
-            </div>
+            <ol class="mt-3 space-y-1">
+              <li v-for="(step, index) in steps" :key="step.key" class="flex items-center gap-2.5 py-1">
+                <span
+                  class="w-5 h-5 shrink-0 rounded-pill flex items-center justify-center text-micro font-medium"
+                  :class="
+                    step.done
+                      ? 'bg-feedback-success-bg text-feedback-success'
+                      : 'bg-neutral-100 text-neutral-500'
+                  "
+                >
+                  <BaseIcon v-if="step.done" name="check" :size="11" />
+                  <template v-else>{{ index + 1 }}</template>
+                </span>
+                <p
+                  class="min-w-0 flex-1 truncate text-caption"
+                  :class="step.done ? 'text-neutral-400' : 'text-neutral-700'"
+                >
+                  {{ step.label }}
+                </p>
+                <RouterLink :to="step.to" class="btn-row shrink-0">{{ step.action }}</RouterLink>
+              </li>
+            </ol>
           </div>
         </aside>
       </div>

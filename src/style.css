@@ -67,6 +67,31 @@
     @apply h-8 px-3 text-caption gap-1.5;
   }
 
+  /* 表格行内操作：默认无边框无底色，靠文字色区分主次，悬停才浮现背景 */
+  .btn-row {
+    @apply inline-flex items-center justify-center gap-1 h-8 px-2.5 rounded-sm
+      text-caption font-medium text-neutral-600 transition-colors duration-fast
+      hover:bg-neutral-100 hover:text-neutral-900
+      focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-1
+      disabled:text-neutral-300 disabled:bg-transparent disabled:cursor-not-allowed;
+  }
+
+  /* 行内主动作（上架）：粉色文字，悬停淡粉底 */
+  .btn-row.is-primary {
+    @apply text-brand-600 hover:bg-brand-50 hover:text-brand-700;
+  }
+
+  /* 行内危险动作（删除）：红色文字，悬停淡红底 */
+  .btn-row.is-danger {
+    @apply text-feedback-danger hover:bg-feedback-danger-bg hover:text-feedback-on-danger;
+  }
+
+  /* 悬停行本身是粉底，行内按钮悬停时改用白底 + 细描边浮起，避免灰块/白块看不见 */
+  .data-table tbody tr:hover .btn-row:hover:not(:disabled) {
+    @apply bg-neutral-0;
+    box-shadow: inset 0 0 0 1px #f8c2d6;
+  }
+
   .btn-lg {
     @apply h-12 text-body-lg;
   }

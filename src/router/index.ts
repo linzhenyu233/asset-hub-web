@@ -26,7 +26,7 @@ const router = createRouter({
           path: 'admin',
           name: 'admin-dashboard',
           component: () => import('../views/admin/DashboardView.vue'),
-          meta: { title: '数据总览', role: 'ADMIN' },
+          meta: { title: '数据总览', role: 'ADMIN', wide: true },
         },
         {
           path: 'admin/assets',

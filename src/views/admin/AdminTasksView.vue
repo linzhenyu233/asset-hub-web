@@ -133,7 +133,7 @@ onMounted(load)
               </td>
               <td class="text-caption whitespace-nowrap">{{ formatDateTime(item.publishedAt) }}</td>
               <td>
-                <button type="button" class="btn btn-secondary btn-sm" @click="router.push(`/admin/tasks/${item.id}`)">
+                <button type="button" class="btn-row" @click="router.push(`/admin/tasks/${item.id}`)">
                   详情
                 </button>
               </td>
