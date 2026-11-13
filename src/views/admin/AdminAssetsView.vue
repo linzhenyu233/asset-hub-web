@@ -43,11 +43,28 @@ const {
   failures,
   frames,
   load: loadThumbs,
+  loadOne: loadThumbOne,
   reset: resetThumbs,
   markBroken,
   kindOf,
   revealFrame,
 } = useBatchPreviews()
+
+/**
+ * 视频和超过 3MB 的图片不自动拉缩略图：后端预览接口返回原图，
+ * 5MB 的视频为了 40px 缩略图要传好几秒。这类行改为鼠标悬停时单独请求，
+ * 其余图片照常自动加载（逐张淡入，不阻塞页面）。
+ */
+const THUMB_AUTO_MAX_BYTES = 3_000_000
+
+function needsDeferredThumb(asset: AdminAsset): boolean {
+  return asset.assetType === 'VIDEO' || asset.fileSize > THUMB_AUTO_MAX_BYTES
+}
+
+function ensureThumb(asset: AdminAsset) {
+  if (thumbs.value[asset.id] || !needsDeferredThumb(asset)) return
+  void loadThumbOne(asset)
+}
 
 const hasFilter = computed(
   () =>
@@ -294,7 +311,7 @@ async function load() {
     })
     items.value = res.items
     total.value = res.total
-    loadThumbs(res.items)
+    loadThumbs(res.items, { maxAutoBytes: THUMB_AUTO_MAX_BYTES, skipVideo: true })
   } catch (error) {
     items.value = []
     total.value = 0
@@ -544,6 +561,7 @@ onMounted(() => {
               :key="asset.id"
               class="group"
               :class="{ 'is-selected': selectedIds.includes(asset.id) }"
+              @mouseenter="ensureThumb(asset)"
             >
               <td>
                 <div
@@ -584,6 +602,8 @@ onMounted(() => {
                       :alt="asset.name"
                       class="absolute inset-0 w-full h-full object-cover bg-white"
                       loading="lazy"
+                      decoding="async"
+                      fetchpriority="low"
                       @error="markBroken(asset.id)"
                     />
                     <video

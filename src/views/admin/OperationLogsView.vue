@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { logApi } from '../../api'
 import type { Operation } from '../../api/types'
-import { actionLabel, formatDateTime, nextDayStart } from '../../utils/format'
+import { actionLabel, formatDateTime, nextDayStart, targetTypeLabel } from '../../utils/format'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import BaseDrawer from '../../components/ui/BaseDrawer.vue'
 import BaseIcon from '../../components/ui/BaseIcon.vue'
@@ -20,17 +20,32 @@ const selected = ref<Operation | null>(null)
 const filters = reactive({
   operatorId: '',
   action: '',
+  targetType: '',
   result: '',
   from: '',
   to: '',
 })
 
 const hasFilter = computed(() =>
-  Boolean(filters.operatorId || filters.action || filters.result || filters.from || filters.to),
+  Boolean(
+    filters.operatorId ||
+      filters.action ||
+      filters.targetType ||
+      filters.result ||
+      filters.from ||
+      filters.to,
+  ),
 )
 
 watch(
-  () => [filters.operatorId, filters.action, filters.result, filters.from, filters.to],
+  () => [
+    filters.operatorId,
+    filters.action,
+    filters.targetType,
+    filters.result,
+    filters.from,
+    filters.to,
+  ],
   () => {
     page.value = 1
     load()
@@ -48,6 +63,7 @@ async function load() {
       pageSize: pageSize.value,
       operatorId: filters.operatorId.trim() || undefined,
       action: filters.action || undefined,
+      targetType: filters.targetType || undefined,
       result: filters.result || undefined,
       from: filters.from ? `${filters.from} 00:00:00` : undefined,
       // 后端 to 为开区间（< to），传次日 00:00:00 才能包含当天全天
@@ -67,6 +83,7 @@ async function load() {
 function resetFilters() {
   filters.operatorId = ''
   filters.action = ''
+  filters.targetType = ''
   filters.result = ''
   filters.from = ''
   filters.to = ''
@@ -89,7 +106,7 @@ onMounted(load)
     </PageHeader>
 
     <div class="card p-4 mb-4">
-      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
         <div>
           <label class="label" for="op-operator">操作人 ID</label>
           <input id="op-operator" v-model="filters.operatorId" class="input" type="text" placeholder="管理员 ID" />
@@ -105,6 +122,15 @@ onMounted(load)
             <option value="TASK_PUBLISH">发布任务</option>
             <option value="ACCOUNT_CREATE">新建子账号</option>
             <option value="ACCOUNT_STATUS">启停子账号</option>
+          </select>
+        </div>
+        <div>
+          <label class="label" for="op-target">对象类型</label>
+          <select id="op-target" v-model="filters.targetType" class="select">
+            <option value="">全部对象</option>
+            <option value="ASSET">素材</option>
+            <option value="TASK">任务素材</option>
+            <option value="ADMIN_ACCOUNT">子账号</option>
           </select>
         </div>
         <div>
@@ -180,7 +206,9 @@ onMounted(load)
                 <p class="text-body text-neutral-900 truncate max-w-[240px]">
                   {{ item.targetNameSnapshot || '—' }}
                 </p>
-                <p class="text-micro text-neutral-400">#{{ item.targetId || '—' }} · {{ item.targetType }}</p>
+                <p class="text-micro text-neutral-400">
+                  #{{ item.targetId || '—' }} · {{ targetTypeLabel(item.targetType) }}
+                </p>
               </td>
               <td>
                 <span class="badge" :class="item.result === 'SUCCESS' ? 'badge-claimed' : 'badge-failed'">
@@ -217,7 +245,7 @@ onMounted(load)
         <div class="rounded-card bg-neutral-50 border border-neutral-100 p-4">
           <p class="text-body font-medium text-neutral-900">{{ selected.targetNameSnapshot || '—' }}</p>
           <p class="mt-1 text-micro text-neutral-500">
-            对象 {{ selected.targetType }} #{{ selected.targetId || '—' }}
+            对象：{{ targetTypeLabel(selected.targetType) }} #{{ selected.targetId || '—' }}
             <span class="mx-1 text-neutral-300">·</span>
             {{ formatDateTime(selected.operatedAt) }}
           </p>

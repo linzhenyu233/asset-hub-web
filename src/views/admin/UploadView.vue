@@ -48,6 +48,10 @@ const { success } = useToast()
 
 const mode = ref<Mode>('material')
 const categories = ref<Category[]>([])
+/** 分类接口加载中：用于显示骨架，避免加载中被当成失败 */
+const categoriesLoading = ref(true)
+/** 分类加载失败的具体原因 */
+const categoryError = ref('')
 const submitting = ref(false)
 const errorMessage = ref('')
 /** 上一批上传结果的提示（成功后留在本页继续上传） */
@@ -566,16 +570,23 @@ function submit() {
   else submitTask()
 }
 
-async function loadCategories() {
+async function loadCategories(force = false) {
+  categoriesLoading.value = true
+  categoryError.value = ''
   try {
-    const res = await categoryApi.list()
+    const res = await categoryApi.list({ force })
     categories.value = res.items
+    if (res.items.length === 0) categoryError.value = '后端没有返回可用分类，请联系管理员'
     // 不再默认选中第一个分类：分类必须由用户显式点选，避免沿用默认值把视频/公司素材传错分类
     if (material.categoryCode && !res.items.some((item) => item.code === material.categoryCode)) {
       material.categoryCode = ''
     }
-  } catch {
+  } catch (error) {
     categories.value = []
+    // 把真实原因透出来（超时 / 401 / 502），否则只能盲猜
+    categoryError.value = error instanceof Error ? error.message : '分类加载失败，请重试'
+  } finally {
+    categoriesLoading.value = false
   }
 }
 
@@ -703,7 +714,30 @@ onMounted(() => {
                   />
                 </button>
               </div>
-              <p v-else class="error-text">分类加载失败，请刷新页面重试</p>
+              <!-- 加载中：骨架占位，避免和「加载失败」混淆 -->
+              <div v-else-if="categoriesLoading" class="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+                <div
+                  v-for="index in 4"
+                  :key="index"
+                  class="rounded-control border border-neutral-100 px-4 py-3"
+                >
+                  <div class="skeleton h-3.5 w-20" />
+                  <div class="skeleton mt-2 h-3 w-28" />
+                </div>
+              </div>
+
+              <div
+                v-else
+                class="flex flex-wrap items-center gap-3 rounded-control border border-feedback-danger/30 bg-feedback-danger-bg px-3.5 py-3"
+              >
+                <BaseIcon name="alert" :size="16" class="shrink-0 text-feedback-danger" />
+                <p class="min-w-0 flex-1 text-micro leading-[16px] text-feedback-on-danger">
+                  {{ categoryError || '分类加载失败，请重试' }}
+                </p>
+                <button type="button" class="btn-row is-danger shrink-0" @click="loadCategories(true)">
+                  重试
+                </button>
+              </div>
               <p class="help-text">
                 <template v-if="material.categoryCode">当前分类可上传：{{ allowedTypeNames }}；</template>
                 <template v-else>请先选择素材分类；</template>

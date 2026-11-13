@@ -133,20 +133,57 @@ const steps = computed(() => {
   ]
 })
 
-async function load() {
-  loading.value = true
-  errorMessage.value = ''
+/** 总览是聚合数据，60 秒内重复进入先用上次结果渲染，再静默刷新 */
+const CACHE_KEY = 'assethub_dashboard_v1'
+const CACHE_TTL = 60_000
+
+function readCache(): Dashboard | null {
   try {
-    data.value = await dashboardApi.get()
-  } catch (error) {
-    data.value = null
-    errorMessage.value = error instanceof Error ? error.message : '数据加载失败'
-  } finally {
-    loading.value = false
+    const raw = sessionStorage.getItem(CACHE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { at?: number; data?: Dashboard }
+    if (!parsed.data || typeof parsed.at !== 'number' || Date.now() - parsed.at > CACHE_TTL) return null
+    return parsed.data
+  } catch {
+    return null
   }
 }
 
-onMounted(load)
+function writeCache(value: Dashboard) {
+  try {
+    sessionStorage.setItem(CACHE_KEY, JSON.stringify({ at: Date.now(), data: value }))
+  } catch {
+    // 隐私模式禁用 sessionStorage，忽略即可
+  }
+}
+
+async function load(silent = false) {
+  if (!silent) loading.value = true
+  errorMessage.value = ''
+  try {
+    const res = await dashboardApi.get()
+    data.value = res
+    writeCache(res)
+  } catch (error) {
+    // 后台静默刷新失败时保留已有数据，不打断阅读
+    if (silent) return
+    data.value = null
+    errorMessage.value = error instanceof Error ? error.message : '数据加载失败'
+  } finally {
+    if (!silent) loading.value = false
+  }
+}
+
+onMounted(() => {
+  const cached = readCache()
+  if (cached) {
+    data.value = cached
+    loading.value = false
+    void load(true)
+    return
+  }
+  void load()
+})
 </script>
 
 <template>
@@ -156,15 +193,15 @@ onMounted(load)
       :subtitle="data ? `统计截止 ${formatDateTime(data.asOf)}（北京时间）` : '素材、任务与下载的全量汇总'"
     >
       <template #actions>
-        <button type="button" class="btn btn-secondary btn-sm" :disabled="loading" @click="load">
+        <button type="button" class="btn btn-secondary btn-sm" :disabled="loading" @click="load()">
           <BaseIcon name="refresh" :size="16" />
           刷新数据
         </button>
       </template>
     </PageHeader>
 
-    <!-- 骨架 -->
-    <div v-if="loading" class="space-y-5">
+    <!-- 骨架：只在没有缓存数据时出现，刷新时保留旧内容 -->
+    <div v-if="loading && !data" class="space-y-5">
       <div class="grid gap-4 grid-cols-2 lg:grid-cols-5">
         <div v-for="index in 5" :key="index" class="card p-4 space-y-3">
           <div class="skeleton h-8 w-8 rounded-control" />
@@ -183,7 +220,7 @@ onMounted(load)
     <div v-else-if="errorMessage" class="card">
       <EmptyState icon="alert" title="数据加载失败" :description="errorMessage">
         <template #action>
-          <button type="button" class="btn btn-primary" @click="load">重新加载</button>
+          <button type="button" class="btn btn-primary" @click="load()">重新加载</button>
         </template>
       </EmptyState>
     </div>

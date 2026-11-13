@@ -444,6 +444,9 @@ onMounted(load)
                       :src="thumbs[group.assetId]"
                       alt=""
                       class="absolute inset-0 w-full h-full object-cover bg-white"
+                      loading="lazy"
+                      decoding="async"
+                      fetchpriority="low"
                       @error="markBroken(group.assetId)"
                     />
                     <video

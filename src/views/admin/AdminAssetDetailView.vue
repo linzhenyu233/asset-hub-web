@@ -154,7 +154,7 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="animate-fade-up">
+  <div class="animate-fade-up mx-auto max-w-[1600px]">
     <div class="flex items-center justify-between gap-3 mb-5">
       <button type="button" class="btn btn-secondary btn-sm" @click="router.push('/admin/assets')">
         <BaseIcon name="arrow-left" :size="16" />

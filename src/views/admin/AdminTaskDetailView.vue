@@ -3,7 +3,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { adminTaskApi } from '../../api'
 import { ApiError } from '../../api/client'
-import type { Claim, TaskDetail } from '../../api/types'
+import type { Asset, Claim, TaskDetail } from '../../api/types'
 import { useBatchPreviews } from '../../composables/useBatchPreviews'
 import { assetTypeLabel, formatBytes, formatDateTime, formatPhone } from '../../utils/format'
 import BaseIcon from '../../components/ui/BaseIcon.vue'
@@ -31,9 +31,31 @@ const contentLines = computed(() => (task.value?.content ? task.value.content.sp
 /** 任务素材解压出的子素材数量（未解包时为 0） */
 const childCount = computed(() => task.value?.activityAsset.children?.length ?? 0)
 
-/** 任务素材封面：用包内第一个图片/视频（后端 cover 字段，缺省时回查详情） */
-const { thumbs, frames, load: loadThumbs, reset: resetThumbs, markBroken, kindOf, revealFrame } =
-  useBatchPreviews()
+/** 任务素材封面与包内素材缩略图共用一份票据状态 */
+const {
+  thumbs,
+  frames,
+  load: loadThumbs,
+  loadOne: loadThumbOne,
+  reset: resetThumbs,
+  markBroken,
+  kindOf,
+  revealFrame,
+} = useBatchPreviews()
+
+/** 视频与超大图不自动加载（预览接口给的是原图），悬停时再取 */
+const THUMB_AUTO_MAX_BYTES = 3_000_000
+
+/** 右栏展示的前 4 个包内素材 */
+const childSamples = computed(() => (task.value?.activityAsset.children ?? []).slice(0, 4))
+const extraChildren = computed(() => Math.max(0, childCount.value - childSamples.value.length))
+
+function ensureThumb(child: Asset) {
+  if (thumbs.value[child.id]) return
+  if (child.assetType === 'VIDEO' || child.fileSize > THUMB_AUTO_MAX_BYTES) {
+    void loadThumbOne(child)
+  }
+}
 
 let keywordTimer: number | undefined
 
@@ -52,9 +74,16 @@ async function loadTask() {
   errorMessage.value = ''
   try {
     task.value = await adminTaskApi.detail(taskId)
-    // 任务素材本身是 ZIP，封面取包内第一个可见图片/视频
-    if (task.value?.activityAsset) loadThumbs([task.value.activityAsset])
-    else resetThumbs()
+    // 一次请求同时拿封面与包内素材缩略图（任务素材本身是 ZIP，封面取包内第一个可见媒体）
+    if (task.value?.activityAsset) {
+      const asset = task.value.activityAsset
+      loadThumbs([asset, ...(asset.children ?? [])], {
+        maxAutoBytes: THUMB_AUTO_MAX_BYTES,
+        skipVideo: true,
+      })
+    } else {
+      resetThumbs()
+    }
   } catch (error) {
     task.value = null
     resetThumbs()
@@ -92,7 +121,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="animate-fade-up">
+  <div class="animate-fade-up mx-auto max-w-[1600px]">
     <div class="flex items-center justify-between gap-3 mb-5">
       <button type="button" class="btn btn-secondary btn-sm" @click="router.push('/admin/tasks')">
         <BaseIcon name="arrow-left" :size="16" />
@@ -125,7 +154,10 @@ onMounted(() => {
     </div>
 
     <!-- 主内容 + 右侧任务素材：领取明细并入左栏，避免左短右长产生大片留白 -->
-    <div v-else class="grid gap-5 lg:grid-cols-[1fr_340px] items-start">
+    <div
+      v-else
+      class="grid gap-5 lg:grid-cols-[minmax(0,1fr)_360px] xl:grid-cols-[minmax(0,1fr)_400px] items-start"
+    >
       <div class="min-w-0 space-y-5">
         <section class="card p-6">
           <div class="flex items-center gap-2 flex-wrap">
@@ -133,13 +165,48 @@ onMounted(() => {
             <span class="badge badge-claimed">{{ task.claimCount }} 人已领取</span>
           </div>
           <h1 class="mt-3 text-h1 font-bold text-neutral-900">{{ task.title }}</h1>
-          <p class="mt-2 text-caption text-neutral-500">发布于 {{ formatDateTime(task.publishedAt) }}</p>
 
-          <div class="mt-5">
+          <!-- 元信息：把发布时间、领取人数、素材规模、分发状态摊开，避免标题下大片空白 -->
+          <div class="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
+            <div class="rounded-control bg-neutral-25 px-3 py-2.5">
+              <p class="text-micro text-neutral-400">发布时间</p>
+              <p class="mt-0.5 truncate text-caption text-neutral-900">{{ formatDateTime(task.publishedAt) }}</p>
+            </div>
+            <div class="rounded-control bg-neutral-25 px-3 py-2.5">
+              <p class="text-micro text-neutral-400">已领取</p>
+              <p class="mt-0.5 text-caption text-neutral-900">{{ task.claimCount }} 人</p>
+            </div>
+            <div class="rounded-control bg-neutral-25 px-3 py-2.5">
+              <p class="text-micro text-neutral-400">活动包</p>
+              <p class="mt-0.5 truncate text-caption text-neutral-900">
+                {{ childCount }} 个素材 · {{ formatBytes(task.activityAsset.fileSize) }}
+              </p>
+            </div>
+            <div class="rounded-control bg-neutral-25 px-3 py-2.5">
+              <p class="text-micro text-neutral-400">分发状态</p>
+              <p
+                class="mt-0.5 text-caption"
+                :class="task.activityAsset.available ? 'text-feedback-success' : 'text-neutral-500'"
+              >
+                {{ task.activityAsset.available ? '可下载' : '已下架' }}
+              </p>
+            </div>
+          </div>
+
+          <div class="mt-5 border-t border-neutral-100 pt-5">
             <h2 class="section-title">任务内容</h2>
-            <p class="mt-3 text-body text-neutral-700 leading-[24px] whitespace-pre-line">
+            <p
+              v-if="contentLines.length"
+              class="mt-3 text-body text-neutral-700 leading-[24px] whitespace-pre-line"
+            >
               {{ contentLines.join('\n') }}
             </p>
+            <div
+              v-else
+              class="mt-3 rounded-control border border-dashed border-neutral-200 bg-neutral-25 px-4 py-3"
+            >
+              <p class="text-caption text-neutral-500">该任务没有填写说明，员工端只显示标题与素材包。</p>
+            </div>
           </div>
         </section>
 
@@ -169,7 +236,11 @@ onMounted(() => {
           </div>
 
           <div v-else-if="claims.length === 0" class="mt-4">
-            <EmptyState icon="users" title="暂无领取记录" description="门店员工领取任务后，这里会显示员工、门店与领取时间。" />
+            <EmptyState
+              icon="users"
+              title="暂无领取记录"
+              description="员工在门店端领取任务后，这里会显示员工、门店与领取时间。"
+            />
           </div>
 
           <template v-else>
@@ -272,6 +343,63 @@ onMounted(() => {
             </div>
           </div>
         </div>
+
+        <!-- 包内素材：让右栏的「包内 N 个素材」可点开看，也把卡片撑起来 -->
+        <div v-if="childSamples.length > 0" class="mt-4">
+          <div class="flex items-center justify-between">
+            <h3 class="text-caption font-medium text-neutral-700">包内素材</h3>
+            <span class="text-micro text-neutral-400">共 {{ childCount }} 个</span>
+          </div>
+          <div class="mt-2 grid grid-cols-3 gap-2">
+            <button
+              v-for="child in childSamples"
+              :key="child.id"
+              type="button"
+              class="relative aspect-[4/3] overflow-hidden rounded-sm border border-neutral-100 bg-neutral-25
+                flex items-center justify-center transition-colors hover:border-brand-200"
+              :title="`查看 ${child.name}`"
+              @click="router.push(`/admin/assets/${child.id}`)"
+              @mouseenter="ensureThumb(child)"
+            >
+              <BaseIcon
+                v-if="!thumbs[child.id]"
+                :name="child.assetType === 'VIDEO' ? 'video' : 'image'"
+                :size="16"
+                class="text-neutral-300"
+              />
+              <img
+                v-if="thumbs[child.id] && kindOf(child) === 'IMAGE'"
+                :src="thumbs[child.id]"
+                :alt="child.name"
+                class="absolute inset-0 w-full h-full object-cover bg-white"
+                loading="lazy"
+                decoding="async"
+                @error="markBroken(child.id)"
+              />
+              <video
+                v-else-if="thumbs[child.id] && kindOf(child) === 'VIDEO'"
+                :src="thumbs[child.id]"
+                class="absolute inset-0 w-full h-full object-cover bg-neutral-900 transition-opacity duration-200"
+                :class="frames[child.id] ? 'opacity-100' : 'opacity-0'"
+                muted
+                playsinline
+                preload="metadata"
+                @loadeddata="revealFrame(child.id, $event)"
+                @error="markBroken(child.id)"
+              />
+              <span
+                v-if="child.assetType === 'VIDEO'"
+                class="absolute bottom-1 left-1 rounded-pill bg-neutral-900/60 px-1.5 py-0.5 text-[10px] leading-[12px] text-white"
+              >
+                视频
+              </span>
+            </button>
+          </div>
+          <p v-if="extraChildren > 0" class="mt-2 text-micro text-neutral-400">
+            还有 {{ extraChildren }} 个素材，点下方「管理包内素材」查看
+          </p>
+        </div>
+
         <button
           type="button"
           class="btn btn-secondary w-full mt-3"
