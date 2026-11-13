@@ -103,9 +103,19 @@ function redirectAfterLogin() {
           </div>
         </div>
 
-        <div class="flex items-center justify-between text-caption text-white/60">
-          <span>© 2026 钻石世家 素材中心</span>
-          <span>内部系统 · 请勿外发</span>
+        <div class="text-caption text-white/60">
+          <div class="flex items-center justify-between gap-4">
+            <span>© 2026 钻石世家 素材中心</span>
+            <span>内部系统 · 请勿外发</span>
+          </div>
+          <a
+            href="https://beian.miit.gov.cn/"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="mt-1 inline-block text-micro text-white/45 transition-colors hover:text-white/80"
+          >
+            粤ICP备14072589号-4
+          </a>
         </div>
       </div>
     </section>
@@ -205,6 +215,16 @@ function redirectAfterLogin() {
 
         <p class="mt-6 text-center text-micro text-neutral-400">
           登录即表示同意遵守公司素材使用与保密规范
+        </p>
+        <p class="mt-3 text-center text-micro text-neutral-400 lg:hidden">
+          <a
+            href="https://beian.miit.gov.cn/"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="transition-colors hover:text-neutral-600"
+          >
+            粤ICP备14072589号-4
+          </a>
         </p>
       </div>
     </section>

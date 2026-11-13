@@ -222,13 +222,27 @@ watch(
         </div>
       </header>
 
-      <main class="pt-topbar">
+      <main class="pt-topbar min-h-screen flex flex-col">
         <div
-          class="px-4 py-4 sm:py-5"
+          class="flex-1 px-4 py-4 sm:py-5"
           :class="isWide ? 'w-full sm:px-10' : 'max-w-content mx-auto sm:px-6'"
         >
           <RouterView />
         </div>
+
+        <!-- 页脚：备案号（工信部备案系统可查） -->
+        <footer class="px-4 pb-5 pt-1 text-center text-micro text-neutral-400 sm:px-10">
+          <span>© 2026 钻石世家 素材中心</span>
+          <span class="mx-2 text-neutral-300">·</span>
+          <a
+            href="https://beian.miit.gov.cn/"
+            target="_blank"
+            rel="noopener noreferrer"
+            class="transition-colors hover:text-neutral-600"
+          >
+            粤ICP备14072589号-4
+          </a>
+        </footer>
       </main>
     </div>
 
