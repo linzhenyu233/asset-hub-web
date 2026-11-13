@@ -149,10 +149,13 @@ const batch = reactive({
 const selectedAssets = computed(() =>
   items.value.filter((item) => selectedIds.value.includes(item.id)),
 )
-/** 未关联任务的活动包不能独立上架，必须走任务发布流程 */
+/**
+ * 只有活动包（CAMPAIGN）必须走任务发布流程；ZIP 素材包与普通素材一样可独立上架，
+ * 子素材随父包状态生效。
+ */
 function canPublish(asset: AdminAsset): boolean {
   if (asset.status === 'PUBLISHED') return false
-  return !(asset.assetType === 'ARCHIVE' && !asset.taskId)
+  return !(asset.assetType === 'ARCHIVE' && asset.categoryCode === 'CAMPAIGN' && !asset.taskId)
 }
 
 /** 批量上架只作用于未上架且可独立上架的素材，批量下架只作用于已上架 */
@@ -165,7 +168,11 @@ const offlineableIds = computed(() =>
 /** 批量上架不可用时的说明：区分「都已上架」与「活动包需走任务发布」 */
 const emptyPublishHint = computed(() => {
   const blockedArchive = selectedAssets.value.some(
-    (item) => item.status !== 'PUBLISHED' && item.assetType === 'ARCHIVE' && !item.taskId,
+    (item) =>
+      item.status !== 'PUBLISHED' &&
+      item.assetType === 'ARCHIVE' &&
+      item.categoryCode === 'CAMPAIGN' &&
+      !item.taskId,
   )
   if (blockedArchive) return '未关联任务的活动包需通过任务发布流程上架'
   return '所选素材均已上架'
@@ -399,7 +406,7 @@ onMounted(() => {
             <option value="">全部类型</option>
             <option value="IMAGE">图片</option>
             <option value="VIDEO">视频</option>
-            <option value="ARCHIVE">活动包</option>
+            <option value="ARCHIVE">ZIP 包</option>
           </select>
         </div>
 
@@ -445,7 +452,7 @@ onMounted(() => {
       <EmptyState
         icon="folder"
         title="还没有素材"
-        :description="hasFilter ? '没有符合筛选条件的素材，试试清空筛选。' : '从「新建素材」上传第一份素材，或直接导入活动包。'"
+        :description="hasFilter ? '没有符合筛选条件的素材，试试清空筛选。' : '从「新建素材」上传第一份素材，或直接导入任务素材。'"
       >
         <template #action>
           <div class="flex items-center gap-2">

@@ -14,7 +14,7 @@ const props = withDefaults(
   defineProps<{
     asset: Asset
     compact?: boolean
-    /** 管理员可对未解包的旧活动包触发解包 */
+    /** 管理员可对未解包的旧 ZIP 素材包 / 活动包触发解包 */
     canUnpack?: boolean
     unpacking?: boolean
     /** 是否为子素材申请预览票据显示封面（需管理员预览权限） */
@@ -113,7 +113,7 @@ async function download(child: Asset) {
       <template v-if="totalSize > 0"> · {{ formatBytes(totalSize) }}</template>
     </p>
 
-    <!-- 空：旧活动包未解包，或 ZIP 内没有可预览的图片/视频 -->
+    <!-- 空：旧 ZIP 包未解包，或 ZIP 内没有可预览的图片/视频 -->
     <div
       v-if="children.length === 0"
       class="mt-3 rounded-control border border-dashed border-neutral-200 bg-neutral-25 px-4 py-5 text-center"
@@ -122,7 +122,7 @@ async function download(child: Asset) {
         <BaseIcon name="folder" :size="20" />
       </div>
       <p class="mt-2 text-caption font-medium text-neutral-700">
-        {{ canUnpack ? '该活动包还没有解包' : '暂无包内素材' }}
+        {{ canUnpack ? '该 ZIP 包还没有解包' : '暂无包内素材' }}
       </p>
       <p class="mt-1 text-micro text-neutral-400 leading-[16px]">
         {{
@@ -139,7 +139,7 @@ async function download(child: Asset) {
         @click="emit('unpack')"
       >
         <BaseIcon :name="unpacking ? 'refresh' : 'folder'" :size="14" :class="unpacking ? 'animate-spin' : ''" />
-        {{ unpacking ? '正在解包…' : '解包活动包' }}
+        {{ unpacking ? '正在解包…' : '解包' }}
       </button>
     </div>
 

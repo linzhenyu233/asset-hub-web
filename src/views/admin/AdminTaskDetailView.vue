@@ -28,10 +28,10 @@ const claimKeyword = ref('')
 const taskId = String(route.params.id)
 
 const contentLines = computed(() => (task.value?.content ? task.value.content.split('\n') : []))
-/** 活动包解压出的子素材数量（未解包时为 0） */
+/** 任务素材解压出的子素材数量（未解包时为 0） */
 const childCount = computed(() => task.value?.activityAsset.children?.length ?? 0)
 
-/** 活动包封面：用包内第一个图片/视频（后端 cover 字段，缺省时回查详情） */
+/** 任务素材封面：用包内第一个图片/视频（后端 cover 字段，缺省时回查详情） */
 const { thumbs, frames, load: loadThumbs, reset: resetThumbs, markBroken, kindOf, revealFrame } =
   useBatchPreviews()
 
@@ -52,7 +52,7 @@ async function loadTask() {
   errorMessage.value = ''
   try {
     task.value = await adminTaskApi.detail(taskId)
-    // 活动包本身是 ZIP，封面取包内第一个可见图片/视频
+    // 任务素材本身是 ZIP，封面取包内第一个可见图片/视频
     if (task.value?.activityAsset) loadThumbs([task.value.activityAsset])
     else resetThumbs()
   } catch (error) {
@@ -124,7 +124,7 @@ onMounted(() => {
       </EmptyState>
     </div>
 
-    <!-- 主内容 + 右侧活动包：领取明细并入左栏，避免左短右长产生大片留白 -->
+    <!-- 主内容 + 右侧任务素材：领取明细并入左栏，避免左短右长产生大片留白 -->
     <div v-else class="grid gap-5 lg:grid-cols-[1fr_340px] items-start">
       <div class="min-w-0 space-y-5">
         <section class="card p-6">
@@ -211,9 +211,9 @@ onMounted(() => {
         </section>
       </div>
 
-      <!-- 右侧：本次活动包（滚动时吸顶） -->
+      <!-- 右侧：本次任务素材（滚动时吸顶） -->
       <aside class="card p-5 lg:sticky lg:top-[84px]">
-        <h2 class="section-title">本次活动包</h2>
+        <h2 class="section-title">本次任务素材</h2>
         <div class="mt-3 rounded-card border border-neutral-100 overflow-hidden">
           <div
             class="relative aspect-[16/9] flex items-center justify-center overflow-hidden text-white/85"
@@ -278,7 +278,7 @@ onMounted(() => {
           @click="router.push(`/admin/assets/${task.activityAsset.id}`)"
         >
           <BaseIcon name="external" :size="16" />
-          管理活动包素材
+          管理包内素材
         </button>
       </aside>
     </div>

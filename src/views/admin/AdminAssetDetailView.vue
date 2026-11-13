@@ -24,7 +24,7 @@ const errorMessage = ref('')
 const assetId = String(route.params.id)
 const previewOpen = ref(false)
 
-/** 管理员可预览草稿与已下架素材，活动包仍需下载 */
+/** 管理员可预览草稿与已下架素材，ZIP 包仍需下载 */
 const canPreview = computed(() => asset.value !== null && asset.value.assetType !== 'ARCHIVE')
 
 const {
@@ -44,18 +44,22 @@ const deleteState = reactive({ open: false, submitting: false })
 const unpacking = ref(false)
 
 /**
- * 解包接口只支持「已关联任务的活动包」（后端保留原任务与领取记录），
- * 旧活动包（v2.10.0 之前上传）没有子素材时可手动补解包。
+ * v2.11.0 起 ZIP 素材包和活动包都能补解包，素材包不需要关联任务；
+ * 只有还没有子素材的包才显示解包入口。
  */
 const canUnpack = computed(
-  () =>
-    asset.value?.assetType === 'ARCHIVE' &&
-    Boolean(asset.value.taskId) &&
-    (asset.value.children?.length ?? 0) === 0,
+  () => asset.value?.assetType === 'ARCHIVE' && (asset.value.children?.length ?? 0) === 0,
 )
-/** 未关联任务的活动包不能独立上架，必须走任务发布流程 */
+/** 当前 ZIP 包是否属于「活动包」（CAMPAIGN 分类，由任务发布流程产生） */
+const isCampaignPackage = computed(
+  () => asset.value?.assetType === 'ARCHIVE' && asset.value.categoryCode === 'CAMPAIGN',
+)
+/**
+ * 只有活动包必须通过任务发布流程上架；ZIP 素材包与普通素材一样可独立上架，
+ * 子素材随父包状态生效（上架后可直接预览、下载，无需领取任务）。
+ */
 const publishBlocked = computed(
-  () => asset.value?.assetType === 'ARCHIVE' && !asset.value.taskId,
+  () => isCampaignPackage.value && !asset.value?.taskId,
 )
 
 async function unpack() {
@@ -70,7 +74,7 @@ async function unpack() {
     if (error instanceof ApiError && error.status === 413) {
       toastError('压缩包内容过多或过大，超出解包限制')
     } else if (error instanceof ApiError && error.status === 409) {
-      toastError('活动包正在处理中，请稍后重试')
+      toastError('压缩包正在处理中，请稍后重试')
     } else if (error instanceof ApiError && error.status === 400) {
       toastError(error.message || '压缩包已损坏或包含不支持的文件')
     } else {
@@ -191,7 +195,12 @@ onMounted(load)
         />
         <div class="mt-4 pt-4 border-t border-neutral-100 space-y-2">
           <p class="text-micro text-neutral-500 leading-[16px]">
-            子素材可单独预览与下载；活动包下架时子素材同时不可访问。员工须先领取关联任务才能下载包内文件。
+            <template v-if="isCampaignPackage">
+              子素材随活动包上架 / 下架；员工须先领取关联任务才能下载包内文件。
+            </template>
+            <template v-else>
+              子素材随素材包上架 / 下架；上架后可直接预览、下载，无需领取任务。
+            </template>
           </p>
           <div class="flex items-center gap-3">
             <p class="text-micro text-neutral-400 truncate">原文件名：{{ asset.originalFilename }}</p>
@@ -301,7 +310,7 @@ onMounted(load)
           </div>
 
           <p v-if="publishBlocked" class="help-text text-left">
-            该活动包未关联任务，需通过「上传并发布任务」流程上架，无法单独上架。
+            该活动包未关联任务，需通过「上传活动包并发布任务」流程上架，无法单独上架。
           </p>
 
           <div v-if="canPreview" class="mt-2">

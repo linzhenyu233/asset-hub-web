@@ -1,9 +1,9 @@
-# 云素材中台 · 前端（Asset Hub Web）
+# 素材中心 · 前端（Asset Hub Web）
 
-独立于 `Media-hub` 的新数据中台前端，对接「图片视频素材中台 API」v2.10.1。
+独立于 `Media-hub` 的新数据中台前端，对接「图片视频素材中台 API」v2.11.0。
 只负责页面与接口调用，**不含后端实现**。以总部管理端为主，并提供「员工视角」预览页（`/assets/:id`）。
 
-- 接口规范：`docs/openapi.json`（v2.10.1，来源 `https://dssczt.shininghouse.vip/go/sczt/v1/api-docs`）
+- 接口规范：`docs/openapi.json`（v2.11.0，来源 `https://dssczt.shininghouse.vip/go/sczt/v1/api-docs`）
 - 设计令牌：严格取自 `tokens.json`（Ardot 文件 734820516311557 导出），并遵循 `DESIGN.md` / `COMPONENTS.md`
 
 ## 当前状态：预览模式（默认开启）
@@ -114,7 +114,7 @@ VITE_PROXY_TARGET=http://192.168.30.239:20011
 src/
   api/
     client.ts        请求封装（Cookie/Bearer、统一错误、二进制上传、票据下载）
-    types.ts         对接接口的 TypeScript 类型（对应 v2.10.1 规范）
+    types.ts         对接接口的 TypeScript 类型（对应 v2.11.0 规范）
     index.ts         按模块分组的接口方法
   composables/
     useToast.ts      全局轻提示

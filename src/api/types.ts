@@ -1,11 +1,15 @@
-// 类型定义严格对应「图片视频素材中台 API」v2.9.0 OpenAPI 规范（40 个业务接口 + 1 个预览 HEAD）
+// 类型定义严格对应「图片视频素材中台 API」v2.11.0 OpenAPI 规范（42 个业务接口 + 1 个预览 HEAD）
 
 export type AssetType = 'IMAGE' | 'VIDEO' | 'ARCHIVE'
 export type CategoryCode = 'IMAGE' | 'VIDEO' | 'COMPANY' | 'CAMPAIGN'
 export type AssetStatus = 'DRAFT' | 'PUBLISHED' | 'OFFLINE'
 /** 后端只有 OSS 一种存储（DINGDRIVE 已下线） */
 export type StorageProvider = 'OSS'
-export type Role = 'ADMIN' | 'EMPLOYEE'
+/**
+ * REVIEW 是独立审核账号（v2.11.0）：只读身份、固定分类与空列表，
+ * 不能预览 / 下载 / 领取 / 改密，也不能访问任何管理接口。
+ */
+export type Role = 'ADMIN' | 'EMPLOYEE' | 'REVIEW'
 export type SessionStatus = 'INIT' | 'UPLOADING' | 'FILE_READY' | 'COMMITTED' | 'FAILED'
 export type UploadPurpose = 'MATERIAL' | 'TASK_PACKAGE'
 export type OperationAction =
@@ -159,18 +163,18 @@ export interface Asset {
   publishedAt: string | null
   taskId: string
   /**
-   * ZIP 子素材所属活动包 ID（顶层素材省略）。
+   * ZIP 子素材所属素材包/活动包 ID（顶层素材省略）。
    * 子素材独立走预览/下载接口，但不在素材列表中重复展示。
    */
   parentId?: string
   /**
-   * 活动包详情中解压出的图片、视频子素材（按 ZIP 顺序）。
-   * 旧活动包未解包或没有可预览文件时省略，此时可调用
-   * `POST /admin/assets/{id}/unpack` 补解包。
+   * ZIP 素材包或活动包详情中解压出的图片、视频（按 ZIP 顺序）。
+   * 图片包只含图片、视频包只含视频、公司包可混合；
+   * 旧包未解包时省略，可调用 `POST /admin/assets/{id}/unpack` 补解包。
    */
   children?: Asset[]
   /**
-   * 活动包（列表与详情）的第一个可见图片/视频子素材（v2.10.1），
+   * ZIP 素材包/活动包（列表与详情）的第一项可见图片或视频（v2.10.1），
    * 字段与子素材一致，直接用它的 id 申请预览即可当封面；
    * 未解包或没有可见媒体时省略。员工只会拿到已上架子素材。
    */

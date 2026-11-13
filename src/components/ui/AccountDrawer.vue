@@ -25,6 +25,7 @@ const initial = computed(() => displayName.value.trim().charAt(0).toUpperCase() 
 const roleText = computed(() => {
   if (!user.value) return '—'
   if (user.value.isSuperAdmin) return '超级管理员'
+  if (user.value.role === 'REVIEW') return '审核账号'
   return user.value.role === 'ADMIN' ? '管理子账号' : '门店员工'
 })
 const roleBadgeClass = computed(() =>

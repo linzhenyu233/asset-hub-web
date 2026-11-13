@@ -40,8 +40,9 @@ function loginPayload(user: User): Login {
 /* ---------------- 基础数据 ---------------- */
 
 const categories: Category[] = [
-  { id: '1', code: 'IMAGE', name: '图片素材', allowedAssetTypes: ['IMAGE'] },
-  { id: '2', code: 'VIDEO', name: '视频素材', allowedAssetTypes: ['VIDEO'] },
+  // v2.11.0：图片 / 视频分类也允许上传 ZIP 素材包（图片包只含图片、视频包只含视频）
+  { id: '1', code: 'IMAGE', name: '图片素材', allowedAssetTypes: ['IMAGE', 'ARCHIVE'] },
+  { id: '2', code: 'VIDEO', name: '视频素材', allowedAssetTypes: ['VIDEO', 'ARCHIVE'] },
   { id: '3', code: 'COMPANY', name: '公司素材', allowedAssetTypes: ['IMAGE', 'VIDEO', 'ARCHIVE'] },
   { id: '4', code: 'CAMPAIGN', name: '活动素材', allowedAssetTypes: ['IMAGE', 'VIDEO', 'ARCHIVE'] },
 ]
@@ -102,7 +103,7 @@ function buildAsset(seed: AssetSeed): AdminAsset {
     status: seed.status,
     originalFilename: filename,
     publishedAt: seed.publishedAt,
-    // 活动包都由任务发布流程产生，关联任务；普通素材无任务
+    // 任务素材都由任务发布流程产生，关联任务；普通素材无任务
     taskId: seed.type === 'ARCHIVE' ? '1' : '',
     storageProvider: 'OSS',
     fileLocator: {
@@ -117,7 +118,7 @@ function buildAsset(seed: AssetSeed): AdminAsset {
 
 const assets: AdminAsset[] = assetSeeds.map(buildAsset)
 
-/* ---------------- 素材包（文件夹型活动包）的子素材 ---------------- */
+/* ---------------- 素材包（文件夹型任务素材）的子素材 ---------------- */
 // 演示模式模拟子素材；真实模式由后端返回 asset.children。
 const packageChildren = new Map<string, Asset>()
 
@@ -149,7 +150,7 @@ function attachPackageChildren(pkg: AdminAsset) {
     return child
   })
 
-  // v2.10.1：活动包按 ZIP 顺序带封面（第一项可见图片，没有图片再取视频）
+  // v2.10.1：任务素材按 ZIP 顺序带封面（第一项可见图片，没有图片再取视频）
   pkg.cover =
     pkg.children.find((child) => child.assetType === 'IMAGE') ??
     pkg.children.find((child) => child.assetType === 'VIDEO')
@@ -367,7 +368,7 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
   /* 分类 */
   if (segments[0] === 'asset-categories') return { items: categories } as unknown as T
 
-  /* ---------- /api/assets：管理端目前只用到 {id}/download（活动包内素材下载） ---------- */
+  /* ---------- /api/assets：管理端目前只用到 {id}/download（任务素材内素材下载） ---------- */
   if (segments[0] === 'assets') {
     if (segments.length === 2 && segments[1] === 'previews' && method === 'POST') {
       const ids = Array.isArray(body.assetIds) ? (body.assetIds as unknown[]).map((value) => str(value)) : []
@@ -480,15 +481,21 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
       if (segments.length === 2 && method === 'POST') {
         const name = str(body.name) || '未命名素材'
         const id = String(++assetSeq)
+        // 素材类型 / 分类 / MIME 沿用上传会话，ZIP 素材包才能正确落成 ARCHIVE
+        const session = sessions.get(str(body.uploadSessionId))
+        const assetType = (session?.assetType ?? 'IMAGE') as AdminAsset['assetType']
+        const categoryCode = session?.categoryCode ?? 'IMAGE'
+        const mimeType = session?.mimeType || MIME[assetType] || 'image/jpeg'
+        const ext = mimeType === 'application/zip' ? '.zip' : mimeType.startsWith('video/') ? '.mp4' : '.jpg'
         const created: AdminAsset = {
           id,
           name,
-          assetType: 'IMAGE',
-          categoryCode: 'IMAGE',
-          mimeType: 'image/jpeg',
-          fileSize: 1_200_000,
+          assetType,
+          categoryCode,
+          mimeType,
+          fileSize: session?.fileSize || 1_200_000,
           status: 'DRAFT',
-          originalFilename: `${name}.jpg`,
+          originalFilename: `${name}${ext}`,
           publishedAt: null,
           taskId: '',
           storageProvider: 'OSS',
@@ -497,10 +504,12 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
             corpId: 'ding-corp-7f2a',
             fileId: `oss-${id}`,
             spaceId: 'space-brand-01',
-            objectKey: `assets/image/${id}/${name}.jpg`,
+            objectKey: `assets/${assetType.toLowerCase()}/${id}/${name}${ext}`,
           },
         }
         assets.unshift(created)
+        // v2.11.0：ZIP 素材包入库时后端自动解压出包内图片、视频
+        if (created.assetType === 'ARCHIVE') attachPackageChildren(created)
         const result: AssetResult = { assetId: id, status: 'DRAFT' }
         return result as unknown as T
       }
@@ -508,7 +517,7 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
       if (segments.length === 3 && segments[2] === 'previews' && method === 'POST') {
         const ids = Array.isArray(body.assetIds) ? (body.assetIds as unknown[]).map((value) => str(value)) : []
         const items = ids.map((id) => {
-          // 活动包内的子素材也可预览（列表页用它做活动包封面）
+          // 任务素材内的子素材也可预览（列表页用它做任务素材封面）
           const asset = assets.find((item) => item.id === id) ?? packageChildren.get(id)
           if (!asset) return { assetId: id, error: { code: 'NOT_FOUND', message: '素材不存在' } }
           if (asset.assetType === 'ARCHIVE') {
@@ -528,7 +537,7 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
           if (assets[index].taskId) {
             return {
               assetId: id,
-              error: { code: 'ASSET_IN_USE', message: '素材已关联任务，请先保留活动包并使用下架操作' },
+              error: { code: 'ASSET_IN_USE', message: '素材已关联任务，请先保留任务素材并使用下架操作' },
             }
           }
           assets.splice(index, 1)
@@ -553,7 +562,7 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
       if (segments.length === 3 && method === 'DELETE') {
         const index = assets.findIndex((item) => item.id === id)
         if (index < 0) throw new Error('素材不存在')
-        if (assets[index].taskId) throw new Error('素材已关联任务，请先保留活动包并使用下架操作')
+        if (assets[index].taskId) throw new Error('素材已关联任务，请先保留任务素材并使用下架操作')
         assets.splice(index, 1)
         return { assetId: id, status: 'DELETED' } as unknown as T
       }
@@ -572,14 +581,14 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
           return { assetId: id, status: 'OFFLINE' } as unknown as T
         }
         if (action === 'preview') {
-          // asset 已包含活动包子素材，点缩略图放大也能拿到票据
+          // asset 已包含任务素材子素材，点缩略图放大也能拿到票据
           if (asset.assetType === 'ARCHIVE') throw new Error('该文件类型不支持在线预览')
           return previewPayload(asset) as unknown as T
         }
         if (action === 'unpack') {
-          // 解包只针对顶层活动包，子素材不会出现在 assets 里
+          // 解包只针对顶层任务素材，子素材不会出现在 assets 里
           const pkg = assets.find((item) => item.id === id)
-          if (!pkg || pkg.assetType !== 'ARCHIVE') throw new Error('仅活动包支持解包')
+          if (!pkg || pkg.assetType !== 'ARCHIVE') throw new Error('仅任务素材支持解包')
           if ((pkg.children?.length ?? 0) === 0) attachPackageChildren(pkg)
           return pkg as unknown as T
         }

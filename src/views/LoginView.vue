@@ -94,17 +94,17 @@ function redirectAfterLogin() {
             让每一份素材<br />在正确的节点抵达门店
           </h1>
           <p class="mt-4 text-body text-white/85 leading-[24px] max-w-[380px]">
-            统一管理图片、视频与活动包，按角色与门店精准分发，下载全程可追溯。
+            统一管理图片、视频与任务素材，按角色与门店精准分发，下载全程可追溯。
           </p>
 
           <div class="mt-8 flex items-center gap-3">
             <span class="h-px w-8 bg-white/40" />
-            <p class="text-caption text-white/70">图片 · 视频 · 活动包 · 统一授权</p>
+            <p class="text-caption text-white/70">图片 · 视频 · 任务素材 · 统一授权</p>
           </div>
         </div>
 
         <div class="flex items-center justify-between text-caption text-white/60">
-          <span>© 2026 钻石世家 云素材中台</span>
+          <span>© 2026 钻石世家 素材中心</span>
           <span>内部系统 · 请勿外发</span>
         </div>
       </div>
@@ -115,7 +115,7 @@ function redirectAfterLogin() {
       <div class="w-full max-w-[420px]">
         <div class="lg:hidden flex items-center gap-2.5 mb-8">
           <BrandMark variant="dark" :size="28" />
-          <span class="text-h3 font-bold text-neutral-900">云素材中台</span>
+          <span class="text-h3 font-bold text-neutral-900">素材中心</span>
         </div>
 
         <h2 class="text-h1 font-bold text-neutral-900">登录管理中台</h2>

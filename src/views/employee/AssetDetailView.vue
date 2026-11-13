@@ -92,7 +92,7 @@ onMounted(load)
       <div class="h-full w-full px-4 sm:px-10 flex items-center gap-3">
         <BrandMark variant="dark" :size="24" />
         <div class="min-w-0">
-          <p class="text-[15px] font-bold text-neutral-900 leading-tight">云素材中台</p>
+          <p class="text-[15px] font-bold text-neutral-900 leading-tight">素材中心</p>
           <p class="text-micro text-neutral-500 leading-tight">员工视角预览</p>
         </div>
         <span class="badge badge-warning shrink-0">预览模式</span>
@@ -144,8 +144,8 @@ onMounted(load)
           <section v-if="asset.assetType === 'ARCHIVE'" class="card p-5">
             <PackageContents :asset="asset" />
             <p class="mt-4 pt-4 border-t border-neutral-100 text-micro text-neutral-500 leading-[16px]">
-              包内图片、视频可单独下载；活动包下架后包内素材同时不可访问。
-              <template v-if="asset.taskId">请先在任务中心领取关联任务，再下载活动包及包内文件。</template>
+              包内图片、视频可单独下载；任务素材下架后包内素材同时不可访问。
+              <template v-if="asset.taskId">请先在任务中心领取关联任务，再下载任务素材及包内文件。</template>
             </p>
           </section>
 

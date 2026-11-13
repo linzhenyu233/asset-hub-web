@@ -91,13 +91,14 @@ const allowedTypes = computed<AssetType[]>(() => {
   return category?.allowedAssetTypes ?? ['IMAGE', 'VIDEO', 'ARCHIVE']
 })
 
-const allowedTypeNames = computed(() =>
-  allowedTypes.value
-    .map((type) => (type === 'IMAGE' ? '图片' : type === 'VIDEO' ? '视频' : '活动包'))
-    .join(' / '),
-)
+/** ARCHIVE 在素材模式是「ZIP 素材包」，在任务模式才是「活动包」 */
+function typeLabel(type: AssetType): string {
+  if (type === 'IMAGE') return '图片'
+  if (type === 'VIDEO') return '视频'
+  return mode.value === 'task' ? '活动包' : 'ZIP 素材包'
+}
 
-const typeLabel = (type: AssetType) => (type === 'IMAGE' ? '图片' : type === 'VIDEO' ? '视频' : '活动包')
+const allowedTypeNames = computed(() => allowedTypes.value.map((type) => typeLabel(type)).join(' / '))
 const iconOfType = (type: AssetType) => (type === 'IMAGE' ? 'image' : type === 'VIDEO' ? 'video' : 'folder')
 
 /** 分类按钮图标：四类分类与图标一一对应，未知分类退化为文件夹 */
@@ -150,8 +151,12 @@ function statusClass(item: PickedFile): string {
   return 'text-neutral-500'
 }
 
-/** 第二行中间的文件类型：识别到真实格式后显示「JPEG 图片」，否则先按类型显示图片/视频 */
+/**
+ * 第二行中间的文件类型：图片/视频显示具体格式（JPEG 图片），
+ * ZIP 统一用素材类型名（素材模式「ZIP 素材包」/ 任务模式「活动包」）。
+ */
 function fileTypeText(item: PickedFile): string {
+  if (item.type === 'ARCHIVE') return typeLabel('ARCHIVE')
   const actual = item.inspection?.actual
   if (actual) return mimeLabel(actual)
   return typeLabel(item.type)
@@ -240,7 +245,7 @@ function addFiles(list: File[]) {
   }
 
   if (mode.value === 'task' && usable.length > 1) {
-    errorMessage.value = '活动包任务一次只能上传一个 ZIP，已保留第一个文件'
+    errorMessage.value = '活动包一次只能上传一个 ZIP，已保留第一个文件'
   }
 
   const limit = fileLimit.value
@@ -432,7 +437,7 @@ function validate(): string {
     if (files.value.some((item) => !item.name.trim())) return '请为每个素材填写名称'
     if (files.value.length > MAX_MATERIAL_FILES) return `单次最多上传 ${MAX_MATERIAL_FILES} 个素材`
   } else {
-    if (files.value.length > 1) return '活动包任务一次只能上传一个 ZIP'
+    if (files.value.length > 1) return '活动包一次只能上传一个 ZIP'
     if (!task.title.trim()) return '请填写任务标题'
     if (!task.content.trim()) return '请填写任务内容'
   }
@@ -582,7 +587,7 @@ onMounted(() => {
 
 <template>
   <div class="animate-fade-up">
-    <PageHeader title="素材入库" subtitle="上传素材文件或活动包，文件由 OSS 托管并受控分发" />
+    <PageHeader title="素材入库" subtitle="上传图片、视频、ZIP 素材包或活动包，文件由 OSS 托管并受控分发" />
 
     <!-- 模式切换 -->
     <div class="flex items-center gap-2 mb-5">
@@ -772,7 +777,7 @@ onMounted(() => {
                 {{
                   mode === 'task'
                     ? '活动包请压缩为 ZIP，发布后自动解压出包内图片与视频'
-                    : '支持一次选择多个图片、视频与活动包，也可以把整个文件夹拖进来'
+                    : '支持图片、视频与 ZIP 素材包，可多选，也可以把整个文件夹拖进来'
                 }}
               </p>
               <button
@@ -992,7 +997,7 @@ onMounted(() => {
               单次最多 {{ MAX_MATERIAL_FILES }} 个文件；单个失败不影响其它文件，失败项会留在清单里，修正后可直接重试。
             </template>
             <template v-else>
-              任务包固定归入「任务素材」分类；发布后可在任务管理查看领取人数，下载明细见下载记录。
+              上传后自动归入「活动素材」分类；发布后可在任务管理查看领取人数，下载明细见下载记录。
             </template>
           </p>
         </div>

@@ -5,9 +5,9 @@ import { resolveFileUrl } from '../api/client'
 export interface ThumbAsset {
   id: string
   assetType: string
-  /** 活动包已带上子素材时直接用，省一次详情请求；未返回该字段才回查详情 */
+  /** 任务素材已带上子素材时直接用，省一次详情请求；未返回该字段才回查详情 */
   children?: Array<{ id: string; assetType: string }>
-  /** v2.10.1 起的活动包封面（包内第一个可见图片/视频），优先使用 */
+  /** v2.10.1 起的任务素材封面（包内第一个可见图片/视频），优先使用 */
   cover?: { id: string; assetType: string }
 }
 
@@ -22,7 +22,7 @@ function kindByMime(mime: string | undefined): ThumbKind | null {
   return null
 }
 
-/** 活动包封面：优先包内第一张图片，没有图片再取第一个视频 */
+/** 任务素材封面：优先包内第一张图片，没有图片再取第一个视频 */
 function pickCover(
   children: Array<{ id: string; assetType: string }> | undefined,
 ): { id: string; assetType: string } | undefined {
@@ -33,17 +33,17 @@ function pickCover(
   )
 }
 
-/** 活动包封面：包内第一个图片/视频子素材 */
+/** 任务素材封面：包内第一个图片/视频子素材 */
 interface PackageCover {
   archiveId: string
   assetId: string
   kind: ThumbKind
 }
 
-/** 活动包封面定位结果（null 表示包内确实没有图片/视频，避免重复回查） */
+/** 任务素材封面定位结果（null 表示包内确实没有图片/视频，避免重复回查） */
 type CoverHit = { assetId: string; kind: ThumbKind } | null
 
-/** 逐个取活动包详情定位封面子素材；详情失败或未解包时跳过该包 */
+/** 逐个取任务素材详情定位封面子素材；详情失败或未解包时跳过该包 */
 async function loadCovers(archiveIds: string[], cache: Map<string, CoverHit>): Promise<PackageCover[]> {
   const covers: PackageCover[] = []
   const queue: string[] = []
@@ -58,7 +58,7 @@ async function loadCovers(archiveIds: string[], cache: Map<string, CoverHit>): P
     if (hit) covers.push({ archiveId: id, ...hit })
   }
 
-  // 控制并发，避免一页十几个活动包同时打详情接口
+  // 控制并发，避免一页十几个任务素材同时打详情接口
   const workers = Array.from({ length: Math.min(4, queue.length) }, async () => {
     while (queue.length > 0) {
       const archiveId = queue.shift()
@@ -74,7 +74,7 @@ async function loadCovers(archiveIds: string[], cache: Map<string, CoverHit>): P
         cache.set(archiveId, hit)
         covers.push({ archiveId, ...hit })
       } catch {
-        // 单个活动包取详情失败只影响它自己的封面，其他照常（失败不进缓存，下次重试）
+        // 单个任务素材取详情失败只影响它自己的封面，其他照常（失败不进缓存，下次重试）
       }
     }
   })
@@ -84,7 +84,7 @@ async function loadCovers(archiveIds: string[], cache: Map<string, CoverHit>): P
 
 /**
  * 列表页批量缩略图：一次预览请求拿整页素材的短时票据（后端上限 100 条）。
- * 活动包本身不支持预览，改为取「包内第一张图片/视频」作为封面；
+ * 任务素材本身不支持预览，改为取「包内第一张图片/视频」作为封面；
  * 未解包或取详情失败时退化为文件夹图标。失败项保留错误说明由页面兜底展示。
  */
 export function useBatchPreviews() {
@@ -94,7 +94,7 @@ export function useBatchPreviews() {
   const failures = ref<Record<string, string>>({})
   /** 视频缩略是否已绘制出画面（未绘制时保持图标占位，避免黑块） */
   const frames = ref<Record<string, boolean>>({})
-  /** 活动包封面定位缓存（同一页面翻页时复用，票据仍每次新申请） */
+  /** 任务素材封面定位缓存（同一页面翻页时复用，票据仍每次新申请） */
   const coverCache = new Map<string, CoverHit>()
   let seq = 0
 
@@ -181,7 +181,7 @@ export function useBatchPreviews() {
           nextFailures[asset.id] = errorOf[asset.id]
         }
       }
-      // 活动包用它封面子素材的票据，键仍是活动包 ID（列表行按活动包 ID 查缩略图）
+      // 任务素材用它封面子素材的票据，键仍是任务素材 ID（列表行按任务素材 ID 查缩略图）
       for (const cover of covers) {
         if (urlOf[cover.assetId]) {
           nextThumbs[cover.archiveId] = urlOf[cover.assetId]

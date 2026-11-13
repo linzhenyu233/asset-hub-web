@@ -117,8 +117,8 @@ router.beforeEach((to) => {
 })
 
 router.afterEach((to) => {
-  const title = (to.meta.title as string | undefined) || '云素材中台'
-  document.title = `${title} · 云素材中台`
+  const title = (to.meta.title as string | undefined) || '素材中心'
+  document.title = `${title} · 素材中心`
 })
 
 export default router

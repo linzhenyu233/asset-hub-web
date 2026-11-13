@@ -1,7 +1,7 @@
 export const ASSET_TYPE_LABEL: Record<string, string> = {
   IMAGE: '图片',
   VIDEO: '视频',
-  ARCHIVE: '活动包',
+  ARCHIVE: 'ZIP 包',
 }
 
 export const CATEGORY_LABEL: Record<string, string> = {

@@ -73,7 +73,7 @@ export const categoryApi = {
 /* ---------------- 素材下载 ---------------- */
 /**
  * 后端只有 `POST /api/assets/{id}/download`（只校验登录态、不区分角色），
- * 管理端活动包内的素材下载也走这里，并会计入下载记录。
+ * 管理端任务素材内的素材下载也走这里，并会计入下载记录。
  */
 export const assetApi = {
   download: (id: string, input: DownloadInput) =>
@@ -107,7 +107,7 @@ export const adminAssetApi = {
     request<AssetResult>(`/admin/assets/${id}/offline`, { method: 'POST', body: {} }),
 
   /**
-   * 解包已有活动包（v2.10.0）：补充 ZIP 内图片、视频为独立子素材，返回带 children 的详情。
+   * 解包已有任务素材（v2.10.0）：补充 ZIP 内图片、视频为独立子素材，返回带 children 的详情。
    * 幂等：已有子素材直接返回，不重复创建。
    */
   unpack: (id: string) =>

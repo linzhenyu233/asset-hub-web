@@ -11,7 +11,7 @@ const router = useRouter()
     <div class="w-full max-w-md text-center">
       <div class="flex items-center justify-center gap-2.5 mb-8">
         <BrandMark variant="dark" :size="28" />
-        <span class="text-h3 font-bold text-neutral-900">云素材中台</span>
+        <span class="text-h3 font-bold text-neutral-900">素材中心</span>
       </div>
 
       <p class="data-num text-[64px] leading-none text-brand-500">404</p>
