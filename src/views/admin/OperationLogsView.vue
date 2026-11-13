@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { logApi } from '../../api'
 import type { Operation } from '../../api/types'
-import { actionLabel, formatDateTime, nextDayStart, storageLabel } from '../../utils/format'
+import { actionLabel, formatDateTime, nextDayStart } from '../../utils/format'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import BaseDrawer from '../../components/ui/BaseDrawer.vue'
 import BaseIcon from '../../components/ui/BaseIcon.vue'
@@ -20,18 +20,17 @@ const selected = ref<Operation | null>(null)
 const filters = reactive({
   operatorId: '',
   action: '',
-  targetType: '',
   result: '',
   from: '',
   to: '',
 })
 
 const hasFilter = computed(() =>
-  Boolean(filters.operatorId || filters.action || filters.targetType || filters.result || filters.from || filters.to),
+  Boolean(filters.operatorId || filters.action || filters.result || filters.from || filters.to),
 )
 
 watch(
-  () => [filters.operatorId, filters.action, filters.targetType, filters.result, filters.from, filters.to],
+  () => [filters.operatorId, filters.action, filters.result, filters.from, filters.to],
   () => {
     page.value = 1
     load()
@@ -49,7 +48,6 @@ async function load() {
       pageSize: pageSize.value,
       operatorId: filters.operatorId.trim() || undefined,
       action: filters.action || undefined,
-      targetType: filters.targetType.trim() || undefined,
       result: filters.result || undefined,
       from: filters.from ? `${filters.from} 00:00:00` : undefined,
       // 后端 to 为开区间（< to），传次日 00:00:00 才能包含当天全天
@@ -69,7 +67,6 @@ async function load() {
 function resetFilters() {
   filters.operatorId = ''
   filters.action = ''
-  filters.targetType = ''
   filters.result = ''
   filters.from = ''
   filters.to = ''
@@ -92,7 +89,7 @@ onMounted(load)
     </PageHeader>
 
     <div class="card p-4 mb-4">
-      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-7">
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
         <div>
           <label class="label" for="op-operator">操作人 ID</label>
           <input id="op-operator" v-model="filters.operatorId" class="input" type="text" placeholder="管理员 ID" />
@@ -109,10 +106,6 @@ onMounted(load)
             <option value="ACCOUNT_CREATE">新建子账号</option>
             <option value="ACCOUNT_STATUS">启停子账号</option>
           </select>
-        </div>
-        <div>
-          <label class="label" for="op-target">对象类型</label>
-          <input id="op-target" v-model="filters.targetType" class="input" type="text" placeholder="如 ASSET" />
         </div>
         <div>
           <label class="label" for="op-result">结果</label>
@@ -176,7 +169,6 @@ onMounted(load)
               <th>对象</th>
               <th>结果</th>
               <th>操作人</th>
-              <th>来源</th>
               <th class="w-24">详情</th>
             </tr>
           </thead>
@@ -196,7 +188,6 @@ onMounted(load)
                 </span>
               </td>
               <td class="text-caption">{{ item.operatorSnapshot || `#${item.operatorId}` }}</td>
-              <td class="text-caption">{{ storageLabel(item.storageProvider) }}</td>
               <td>
                 <button type="button" class="btn-row" @click="selected = item">查看</button>
               </td>
@@ -265,10 +256,6 @@ onMounted(load)
             <div class="flex items-start justify-between gap-4 py-2.5">
               <dt class="text-caption text-neutral-500">请求标识</dt>
               <dd class="text-caption text-neutral-900 text-right break-all font-mono">{{ selected.requestId || '—' }}</dd>
-            </div>
-            <div class="flex items-start justify-between gap-4 py-2.5">
-              <dt class="text-caption text-neutral-500">存储来源</dt>
-              <dd class="text-caption text-neutral-900 text-right">{{ storageLabel(selected.storageProvider) }}</dd>
             </div>
           </dl>
         </div>

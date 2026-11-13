@@ -100,9 +100,11 @@ watch(
       <!-- 品牌 -->
       <div class="h-topbar flex items-center gap-3 px-5 shrink-0">
         <BrandMark variant="dark" :size="28" />
-        <div v-show="!collapsed" class="min-w-0">
-          <p class="text-[15px] font-bold text-neutral-900 leading-tight truncate">云素材中台</p>
-          <p class="text-micro text-neutral-500 truncate">Media Hub</p>
+        <div v-show="!collapsed" class="min-w-0 text-center">
+          <p class="text-[15px] font-bold text-neutral-900 leading-tight truncate tracking-[0.06em]">
+            SHINING HOUSE
+          </p>
+          <p class="text-micro text-neutral-500 leading-tight truncate">云素材中台</p>
         </div>
       </div>
 
@@ -122,21 +124,8 @@ watch(
         </button>
       </nav>
 
-      <!-- 底部：存储说明 + 用户 -->
+      <!-- 底部：用户 -->
       <div class="px-3 pb-3 space-y-2 shrink-0">
-        <div
-          v-show="!collapsed"
-          class="rounded-card bg-neutral-50 border border-neutral-100 px-3 py-3"
-        >
-          <div class="flex items-center gap-2 text-neutral-600">
-            <BaseIcon name="cloud" :size="16" />
-            <span class="text-caption font-medium">云端存储</span>
-          </div>
-          <p class="mt-1 text-micro text-neutral-500 leading-[16px]">
-            文件由 OSS 托管，下载经短时票据授权
-          </p>
-        </div>
-
         <div
           class="flex rounded-control"
           :class="collapsed ? 'flex-col items-center gap-1 p-1' : 'items-center gap-1 p-1'"

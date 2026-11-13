@@ -6,7 +6,7 @@ import { ApiError } from '../../api/client'
 import type { AdminAsset, BatchDeleteFailure, BatchDeleteResult, Category } from '../../api/types'
 import { useBatchPreviews } from '../../composables/useBatchPreviews'
 import { useToast } from '../../composables/useToast'
-import { assetTypeLabel, categoryLabel, formatBytes, formatDateTime, storageLabel } from '../../utils/format'
+import { assetTypeLabel, categoryLabel, formatBytes, formatDateTime } from '../../utils/format'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import BaseIcon from '../../components/ui/BaseIcon.vue'
 import BaseModal from '../../components/ui/BaseModal.vue'
@@ -32,7 +32,6 @@ const filters = reactive({
   categoryCode: '',
   assetType: '',
   status: '',
-  storageProvider: '',
 })
 
 const categoryDict = computed<Record<string, string>>(() =>
@@ -55,8 +54,7 @@ const hasFilter = computed(
     Boolean(filters.keyword) ||
     Boolean(filters.categoryCode) ||
     Boolean(filters.assetType) ||
-    Boolean(filters.status) ||
-    Boolean(filters.storageProvider),
+    Boolean(filters.status),
 )
 
 const confirmState = reactive({
@@ -254,7 +252,7 @@ function closeBatch() {
 let keywordTimer: number | undefined
 
 watch(
-  () => [filters.categoryCode, filters.assetType, filters.status, filters.storageProvider],
+  () => [filters.categoryCode, filters.assetType, filters.status],
   () => {
     page.value = 1
     load()
@@ -286,7 +284,6 @@ async function load() {
       categoryCode: filters.categoryCode || undefined,
       assetType: filters.assetType || undefined,
       status: filters.status || undefined,
-      storageProvider: filters.storageProvider || undefined,
     })
     items.value = res.items
     total.value = res.total
@@ -344,7 +341,6 @@ function resetFilters() {
   filters.categoryCode = ''
   filters.assetType = ''
   filters.status = ''
-  filters.storageProvider = ''
   page.value = 1
   load()
 }
@@ -372,7 +368,7 @@ onMounted(() => {
 
     <!-- 筛选 -->
     <div class="card p-4 mb-4">
-      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <div class="lg:col-span-2">
           <label class="label" for="admin-asset-keyword">关键词</label>
           <div class="relative">
@@ -417,13 +413,6 @@ onMounted(() => {
           </select>
         </div>
 
-        <div>
-          <label class="label" for="admin-asset-storage">来源</label>
-          <select id="admin-asset-storage" v-model="filters.storageProvider" class="select">
-            <option value="">全部来源</option>
-            <option value="OSS">OSS</option>
-          </select>
-        </div>
       </div>
 
       <div v-if="hasFilter" class="mt-3 flex items-center justify-between">
@@ -538,7 +527,6 @@ onMounted(() => {
               <th>类型</th>
               <th>大小</th>
               <th>状态</th>
-              <th>来源</th>
               <th>上架时间</th>
               <th class="w-44">操作</th>
             </tr>
@@ -630,7 +618,6 @@ onMounted(() => {
               <td class="text-caption">{{ assetTypeLabel(asset.assetType) }}</td>
               <td class="text-caption whitespace-nowrap">{{ formatBytes(asset.fileSize) }}</td>
               <td><StatusBadge :status="asset.status" /></td>
-              <td class="text-caption">{{ storageLabel(asset.storageProvider) }}</td>
               <td class="text-caption whitespace-nowrap">{{ formatDateTime(asset.publishedAt) }}</td>
               <td>
                 <div class="flex items-center gap-1">

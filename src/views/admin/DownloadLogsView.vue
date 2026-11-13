@@ -4,7 +4,7 @@ import { useRouter } from 'vue-router'
 import { logApi } from '../../api'
 import type { DownloadLog } from '../../api/types'
 import { useBatchPreviews } from '../../composables/useBatchPreviews'
-import { formatDateTime, nextDayStart, storageLabel } from '../../utils/format'
+import { formatDateTime, nextDayStart } from '../../utils/format'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import BaseIcon from '../../components/ui/BaseIcon.vue'
 import EmptyState from '../../components/ui/EmptyState.vue'
@@ -28,13 +28,12 @@ const errorMessage = ref('')
 const filters = reactive({
   userId: '',
   assetId: '',
-  storageProvider: '',
   from: '',
   to: '',
 })
 
 const hasFilter = computed(
-  () => Boolean(filters.userId || filters.assetId || filters.storageProvider || filters.from || filters.to),
+  () => Boolean(filters.userId || filters.assetId || filters.from || filters.to),
 )
 
 /** 两个视图共用的查询参数：用户手输的素材 ID 优先，其次是聚合钻取的素材 */
@@ -42,7 +41,6 @@ function query() {
   return {
     userId: filters.userId.trim() || undefined,
     assetId: filters.assetId.trim() || drillAssetId.value || undefined,
-    storageProvider: filters.storageProvider || undefined,
     from: filters.from ? `${filters.from} 00:00:00` : undefined,
     // 后端 to 为开区间（< to），传次日 00:00:00 才能包含当天全天
     to: filters.to ? nextDayStart(filters.to) : undefined,
@@ -200,7 +198,7 @@ function openAggregate() {
 }
 
 watch(
-  () => [filters.userId, filters.assetId, filters.storageProvider, filters.from, filters.to],
+  () => [filters.userId, filters.assetId, filters.from, filters.to],
   () => {
     if (view.value === 'asset') {
       aggPage.value = 1
@@ -229,7 +227,6 @@ watch(view, (next) => {
 function resetFilters() {
   filters.userId = ''
   filters.assetId = ''
-  filters.storageProvider = ''
   filters.from = ''
   filters.to = ''
   drillAssetId.value = ''
@@ -281,7 +278,7 @@ onMounted(load)
     </div>
 
     <div class="card p-4 mb-4">
-      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-6">
+      <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <div>
           <label class="label" for="dl-user">员工 ID</label>
           <input id="dl-user" v-model="filters.userId" class="input" type="text" placeholder="按员工筛选" />
@@ -289,13 +286,6 @@ onMounted(load)
         <div>
           <label class="label" for="dl-asset">素材 ID</label>
           <input id="dl-asset" v-model="filters.assetId" class="input" type="text" placeholder="按素材筛选" />
-        </div>
-        <div>
-          <label class="label" for="dl-storage">存储来源</label>
-          <select id="dl-storage" v-model="filters.storageProvider" class="select">
-            <option value="">全部来源</option>
-            <option value="OSS">OSS</option>
-          </select>
         </div>
         <div>
           <label class="label" for="dl-from">开始日期</label>
@@ -368,7 +358,6 @@ onMounted(load)
               <th>员工</th>
               <th>门店</th>
               <th>素材</th>
-              <th>来源</th>
               <th>请求标识</th>
             </tr>
           </thead>
@@ -387,7 +376,6 @@ onMounted(load)
                 </button>
                 <p class="text-micro text-neutral-400">#{{ item.assetId }}</p>
               </td>
-              <td class="text-caption">{{ storageLabel(item.storageProvider) }}</td>
               <td class="text-micro text-neutral-400 font-mono truncate max-w-[200px]">{{ item.requestId }}</td>
             </tr>
           </tbody>
