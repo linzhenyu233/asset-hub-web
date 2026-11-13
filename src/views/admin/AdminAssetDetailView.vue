@@ -6,7 +6,7 @@ import { ApiError, resolveFileUrl } from '../../api/client'
 import type { AdminAsset } from '../../api/types'
 import { useAssetPreview } from '../../composables/useAssetPreview'
 import { useToast } from '../../composables/useToast'
-import { assetTypeLabel, categoryLabel, formatBytes, formatDateTime, storageLabel } from '../../utils/format'
+import { assetTypeLabel, categoryLabel, formatBytes, formatDateTime } from '../../utils/format'
 import BaseIcon from '../../components/ui/BaseIcon.vue'
 import BaseModal from '../../components/ui/BaseModal.vue'
 import EmptyState from '../../components/ui/EmptyState.vue'
@@ -272,7 +272,6 @@ onMounted(load)
           <div class="mt-3 flex items-center gap-2 flex-wrap">
             <span class="badge badge-brand">{{ assetTypeLabel(asset.assetType) }}</span>
             <span class="badge badge-neutral">{{ categoryLabel(asset.categoryCode) }}</span>
-            <span class="badge badge-neutral">{{ storageLabel(asset.storageProvider) }}</span>
           </div>
 
           <div class="mt-4 flex items-center gap-2">

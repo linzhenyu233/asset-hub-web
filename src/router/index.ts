@@ -44,7 +44,7 @@ const router = createRouter({
           path: 'admin/upload',
           name: 'admin-upload',
           component: () => import('../views/admin/UploadView.vue'),
-          meta: { title: '素材入库', role: 'ADMIN' },
+          meta: { title: '素材入库', role: 'ADMIN', wide: true },
         },
         {
           path: 'admin/tasks',

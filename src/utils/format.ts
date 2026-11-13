@@ -11,11 +11,6 @@ export const CATEGORY_LABEL: Record<string, string> = {
   CAMPAIGN: '活动素材',
 }
 
-/** 后端 storageProvider 目前只有 OSS（枚举见后端 model.go Provider*） */
-export const STORAGE_LABEL: Record<string, string> = {
-  OSS: 'OSS',
-}
-
 /** 与后端 OperationAction 枚举一一对应（UPLOAD/PUBLISH/OFFLINE/DELETE/TASK_PUBLISH/ACCOUNT_CREATE/ACCOUNT_STATUS） */
 export const ACTION_LABEL: Record<string, string> = {
   UPLOAD: '上传',
@@ -33,11 +28,6 @@ export function assetTypeLabel(value: string): string {
 
 export function categoryLabel(value: string, dict?: Record<string, string>): string {
   return dict?.[value] ?? CATEGORY_LABEL[value] ?? value
-}
-
-export function storageLabel(value?: string | null): string {
-  if (!value) return '—'
-  return STORAGE_LABEL[value] ?? value
 }
 
 export function actionLabel(value: string): string {

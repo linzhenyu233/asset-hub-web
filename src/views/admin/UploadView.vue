@@ -100,6 +100,14 @@ const allowedTypeNames = computed(() =>
 const typeLabel = (type: AssetType) => (type === 'IMAGE' ? '图片' : type === 'VIDEO' ? '视频' : '活动包')
 const iconOfType = (type: AssetType) => (type === 'IMAGE' ? 'image' : type === 'VIDEO' ? 'video' : 'folder')
 
+/** 分类按钮图标：四类分类与图标一一对应，未知分类退化为文件夹 */
+const categoryIcon = (code: CategoryCode) =>
+  code === 'IMAGE' ? 'image' : code === 'VIDEO' ? 'video' : code === 'COMPANY' ? 'building' : 'clipboard'
+
+/** 分类按钮副标题：该分类允许上传的素材类型 */
+const categoryTypesText = (category: Category) =>
+  category.allowedAssetTypes.map((type) => typeLabel(type)).join(' · ')
+
 /** 文件选择框的可选类型：任务包只放 ZIP，素材按当前分类放开 */
 const acceptTypes = computed(() => {
   if (mode.value === 'task') return '.zip,application/zip'
@@ -557,7 +565,10 @@ async function loadCategories() {
   try {
     const res = await categoryApi.list()
     categories.value = res.items
-    if (!material.categoryCode && res.items.length > 0) material.categoryCode = res.items[0].code
+    // 不再默认选中第一个分类：分类必须由用户显式点选，避免沿用默认值把视频/公司素材传错分类
+    if (material.categoryCode && !res.items.some((item) => item.code === material.categoryCode)) {
+      material.categoryCode = ''
+    }
   } catch {
     categories.value = []
   }
@@ -577,7 +588,7 @@ onMounted(() => {
     <div class="flex items-center gap-2 mb-5">
       <button
         type="button"
-        class="flex items-center gap-2 h-10 px-4 rounded-control text-body font-medium transition-colors duration-fast"
+        class="flex items-center gap-2 h-11 px-5 rounded-control text-body font-medium transition-colors duration-fast"
         :class="mode === 'material' ? 'bg-brand-100 text-brand-600' : 'bg-neutral-0 text-neutral-600 border border-neutral-200 hover:bg-neutral-50'"
         @click="switchMode('material')"
       >
@@ -586,7 +597,7 @@ onMounted(() => {
       </button>
       <button
         type="button"
-        class="flex items-center gap-2 h-10 px-4 rounded-control text-body font-medium transition-colors duration-fast"
+        class="flex items-center gap-2 h-11 px-5 rounded-control text-body font-medium transition-colors duration-fast"
         :class="mode === 'task' ? 'bg-brand-100 text-brand-600' : 'bg-neutral-0 text-neutral-600 border border-neutral-200 hover:bg-neutral-50'"
         @click="switchMode('task')"
       >
@@ -595,9 +606,9 @@ onMounted(() => {
       </button>
     </div>
 
-    <div class="grid gap-5 lg:grid-cols-[1fr_360px] items-start">
+    <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px] items-start">
       <!-- 表单 -->
-      <form class="card p-6" @submit.prevent="submit">
+      <form class="card p-6 sm:p-8" @submit.prevent="submit">
         <div v-if="errorMessage" role="alert" class="mb-4 flex items-start gap-2 rounded-control bg-feedback-danger-bg px-3.5 py-3 text-[13px] leading-[19px] text-feedback-on-danger">
           <BaseIcon name="alert" :size="18" class="mt-px" />
           <span>{{ errorMessage }}</span>
@@ -628,23 +639,76 @@ onMounted(() => {
           </button>
         </div>
 
-        <div v-if="mode === 'material'" class="space-y-4">
-          <h2 class="section-title">基础信息</h2>
+        <div v-if="mode === 'material'" class="space-y-6">
           <div>
-            <label class="label" for="material-category">素材分类</label>
-            <select id="material-category" v-model="material.categoryCode" class="select">
-              <option value="" disabled>请选择分类</option>
-              <option v-for="category in categories" :key="category.code" :value="category.code">
-                {{ category.name }}
-              </option>
-            </select>
-            <p class="help-text">
-              当前分类可上传：{{ allowedTypeNames }}；文件类型按实际内容自动识别，一次最多 {{ MAX_MATERIAL_FILES }} 个。
-            </p>
+            <div class="flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1">
+              <h2 class="section-title">基础信息</h2>
+              <p class="text-micro text-neutral-400">分类决定可上传的文件类型，请先选择</p>
+            </div>
+            <div class="mt-4">
+              <p class="label">素材分类</p>
+              <div
+                v-if="categories.length > 0"
+                class="grid grid-cols-2 gap-2.5 xl:grid-cols-4"
+                role="radiogroup"
+                aria-label="素材分类"
+              >
+                <button
+                  v-for="category in categories"
+                  :key="category.code"
+                  type="button"
+                  role="radio"
+                  :aria-checked="material.categoryCode === category.code"
+                  class="flex items-center gap-3 rounded-control border px-4 py-3 text-left transition-all duration-fast"
+                  :class="
+                    material.categoryCode === category.code
+                      ? 'border-brand-400 bg-brand-50 shadow-e1'
+                      : 'border-neutral-200 bg-neutral-0 hover:border-brand-200 hover:bg-neutral-50'
+                  "
+                  @click="material.categoryCode = category.code"
+                >
+                  <span
+                    class="flex h-9 w-9 shrink-0 items-center justify-center rounded-control"
+                    :class="
+                      material.categoryCode === category.code
+                        ? 'bg-brand-100 text-brand-600'
+                        : 'bg-neutral-100 text-neutral-500'
+                    "
+                  >
+                    <BaseIcon :name="categoryIcon(category.code)" :size="18" />
+                  </span>
+                  <span class="min-w-0 flex-1">
+                    <span
+                      class="block truncate text-caption font-medium"
+                      :class="
+                        material.categoryCode === category.code ? 'text-brand-700' : 'text-neutral-700'
+                      "
+                    >
+                      {{ category.name }}
+                    </span>
+                    <span class="mt-0.5 block truncate text-micro text-neutral-400">
+                      {{ categoryTypesText(category) }}
+                    </span>
+                  </span>
+                  <BaseIcon
+                    v-if="material.categoryCode === category.code"
+                    name="check"
+                    :size="14"
+                    class="shrink-0 text-brand-600"
+                  />
+                </button>
+              </div>
+              <p v-else class="error-text">分类加载失败，请刷新页面重试</p>
+              <p class="help-text">
+                <template v-if="material.categoryCode">当前分类可上传：{{ allowedTypeNames }}；</template>
+                <template v-else>请先选择素材分类；</template>
+                文件类型按实际内容自动识别，一次最多 {{ MAX_MATERIAL_FILES }} 个。
+              </p>
+            </div>
           </div>
         </div>
 
-        <div v-else class="space-y-4">
+        <div v-else class="space-y-6">
           <h2 class="section-title">任务信息</h2>
           <div>
             <label class="label" for="task-title">任务标题</label>
@@ -665,7 +729,7 @@ onMounted(() => {
         </div>
 
         <!-- 文件选择 -->
-        <div class="mt-6 pt-5 border-t border-neutral-100">
+        <div class="mt-8 pt-6 border-t border-neutral-100">
           <div class="flex items-center justify-between gap-3">
             <h2 class="section-title">{{ mode === 'task' ? '活动包文件' : '文件清单' }}</h2>
             <div v-if="files.length > 0" class="flex items-center gap-3">
@@ -684,10 +748,10 @@ onMounted(() => {
           </div>
 
           <div
-            class="relative mt-3 rounded-card border-2 border-dashed px-5 text-center transition-colors cursor-pointer"
+            class="relative mt-4 rounded-card border-2 border-dashed px-5 text-center transition-colors cursor-pointer"
             :class="[
               dragging ? 'border-brand-400 bg-brand-50' : 'border-neutral-200 bg-neutral-25 hover:border-brand-300',
-              files.length > 0 ? 'py-3' : 'py-8',
+              files.length > 0 ? 'py-4' : 'py-14',
             ]"
             role="button"
             tabindex="0"
@@ -697,18 +761,30 @@ onMounted(() => {
             @dragleave.prevent="dragging = false"
             @drop.prevent="onDrop"
           >
-            <div v-if="files.length === 0" class="flex flex-col items-center gap-2 text-neutral-500">
-              <div class="w-12 h-12 rounded-2xl bg-neutral-0 border border-neutral-100 flex items-center justify-center text-neutral-400">
-                <BaseIcon name="upload" :size="22" />
+            <div v-if="files.length === 0" class="flex flex-col items-center gap-3 text-neutral-500">
+              <div
+                class="flex h-16 w-16 items-center justify-center rounded-2xl border border-neutral-100 bg-neutral-0 text-neutral-400 shadow-e1"
+              >
+                <BaseIcon name="upload" :size="26" />
               </div>
-              <p class="text-body text-neutral-700">点击选择文件，或拖拽到此处</p>
-              <p class="text-micro text-neutral-400">
+              <p class="text-body-lg text-neutral-700">点击选择文件，或拖拽到此处</p>
+              <p class="max-w-[420px] text-caption text-neutral-400">
                 {{
                   mode === 'task'
                     ? '活动包请压缩为 ZIP，发布后自动解压出包内图片与视频'
                     : '支持一次选择多个图片、视频与活动包，也可以把整个文件夹拖进来'
                 }}
               </p>
+              <button
+                v-if="mode === 'material'"
+                type="button"
+                class="btn btn-secondary btn-sm mt-1"
+                :disabled="submitting"
+                @click.stop="pickFolder"
+              >
+                <BaseIcon name="folder" :size="14" />
+                选择整个文件夹
+              </button>
             </div>
 
             <div v-else class="flex flex-wrap items-center justify-center gap-3 text-neutral-500">
@@ -730,17 +806,6 @@ onMounted(() => {
               </template>
             </div>
 
-            <button
-              v-if="mode === 'material' && files.length === 0"
-              type="button"
-              class="absolute right-2 top-2 inline-flex h-7 items-center gap-1 rounded-sm px-2 text-micro text-neutral-500
-                transition-colors hover:bg-neutral-0 hover:text-brand-600 disabled:opacity-40"
-              :disabled="submitting"
-              @click.stop="pickFolder"
-            >
-              <BaseIcon name="folder" :size="12" />
-              选择文件夹
-            </button>
           </div>
 
           <!-- 已选文件清单：一行一个文件，底色表达队列状态 -->
@@ -850,11 +915,16 @@ onMounted(() => {
           />
         </div>
 
-        <div class="mt-6 flex items-center justify-end gap-2">
-          <button type="button" class="btn btn-secondary" :disabled="submitting" @click="router.push(mode === 'material' ? '/admin/assets' : '/admin/tasks')">
+        <div class="mt-8 flex items-center justify-end gap-3">
+          <button
+            type="button"
+            class="btn btn-secondary btn-lg px-6"
+            :disabled="submitting"
+            @click="router.push(mode === 'material' ? '/admin/assets' : '/admin/tasks')"
+          >
             取消
           </button>
-          <button type="submit" class="btn btn-primary" :disabled="!canSubmit">
+          <button type="submit" class="btn btn-primary btn-lg px-8" :disabled="!canSubmit">
             <svg
               v-if="submitting"
               class="animate-spin"
@@ -875,39 +945,55 @@ onMounted(() => {
       </form>
 
       <!-- 说明 -->
-      <aside class="space-y-4">
-        <div class="card p-5">
-          <h2 class="section-title">上传流程</h2>
-          <ol class="mt-3 space-y-3 text-caption text-neutral-600">
+      <aside class="space-y-4 lg:sticky lg:top-[88px]">
+        <div class="card p-6">
+          <h2 class="section-title">{{ mode === 'material' ? '入库流程' : '发布流程' }}</h2>
+
+          <ol v-if="mode === 'material'" class="mt-4 space-y-3.5 text-caption text-neutral-600 leading-[20px]">
             <li class="flex gap-3">
               <span class="w-5 h-5 shrink-0 rounded-pill bg-brand-100 text-brand-600 text-micro font-medium flex items-center justify-center">1</span>
-              创建上传会话并获取传输地址
+              <span>先选素材分类，再拖入或选取文件；也可以直接选整个文件夹批量导入。</span>
             </li>
             <li class="flex gap-3">
               <span class="w-5 h-5 shrink-0 rounded-pill bg-brand-100 text-brand-600 text-micro font-medium flex items-center justify-center">2</span>
-              以二进制流上传文件，实时显示进度
+              <span>系统自动识别格式与类型；点文件名可改成门店看到的名字。</span>
             </li>
             <li class="flex gap-3">
               <span class="w-5 h-5 shrink-0 rounded-pill bg-brand-100 text-brand-600 text-micro font-medium flex items-center justify-center">3</span>
-              提交校验文件完整性（大小与类型）
+              <span>点「上传并入库」，按清单顺序逐个上传，每行实时显示进度。</span>
             </li>
             <li class="flex gap-3">
               <span class="w-5 h-5 shrink-0 rounded-pill bg-brand-100 text-brand-600 text-micro font-medium flex items-center justify-center">4</span>
-              {{ mode === 'material' ? '逐个创建素材草稿，随后可上架' : '创建任务与本次活动包' }}
+              <span>入库后是「草稿」，需到素材管理上架，门店才能看到并下载。</span>
             </li>
           </ol>
-          <p v-if="mode === 'material'" class="mt-3 text-micro text-neutral-400 leading-[16px]">
-            批量上传按文件顺序逐个传输，单个失败不影响其它文件；失败的会留在清单里，可直接重试。
-          </p>
-        </div>
 
-        <div class="card p-5 bg-feedback-info-bg border-transparent">
-          <div class="flex items-center gap-2 text-feedback-info">
-            <BaseIcon name="shield" :size="16" />
-            <span class="text-caption font-medium">存储说明</span>
-          </div>
-          <p class="mt-2 text-caption text-feedback-info/85 leading-[18px]">
-            新文件统一存入 OSS；若 OSS 未配置，上传会返回 503，请联系运维检查存储配置。
+          <ol v-else class="mt-4 space-y-3.5 text-caption text-neutral-600 leading-[20px]">
+            <li class="flex gap-3">
+              <span class="w-5 h-5 shrink-0 rounded-pill bg-brand-100 text-brand-600 text-micro font-medium flex items-center justify-center">1</span>
+              <span>填写任务标题与内容，门店在领取页看到的就是这两段文字。</span>
+            </li>
+            <li class="flex gap-3">
+              <span class="w-5 h-5 shrink-0 rounded-pill bg-brand-100 text-brand-600 text-micro font-medium flex items-center justify-center">2</span>
+              <span>上传活动包 ZIP，一次一个；包内放要分发的图片或视频。</span>
+            </li>
+            <li class="flex gap-3">
+              <span class="w-5 h-5 shrink-0 rounded-pill bg-brand-100 text-brand-600 text-micro font-medium flex items-center justify-center">3</span>
+              <span>点「上传并发布任务」，上传完成后自动创建任务并跳到任务详情。</span>
+            </li>
+            <li class="flex gap-3">
+              <span class="w-5 h-5 shrink-0 rounded-pill bg-brand-100 text-brand-600 text-micro font-medium flex items-center justify-center">4</span>
+              <span>员工领取后即可查看、下载包内素材，领取与下载记录可追溯。</span>
+            </li>
+          </ol>
+
+          <p class="mt-4 border-t border-neutral-100 pt-3 text-micro text-neutral-400 leading-[18px]">
+            <template v-if="mode === 'material'">
+              单次最多 {{ MAX_MATERIAL_FILES }} 个文件；单个失败不影响其它文件，失败项会留在清单里，修正后可直接重试。
+            </template>
+            <template v-else>
+              任务包固定归入「任务素材」分类；发布后可在任务管理里查看领取与下载情况。
+            </template>
           </p>
         </div>
       </aside>
