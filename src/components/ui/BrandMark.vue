@@ -11,7 +11,7 @@ withDefaults(
 <template>
   <img
     :src="variant === 'white' ? '/brand/logo-symbol-white.png' : '/brand/logo-symbol-dark.png'"
-    :alt="'钻石世家'"
+    alt="SHINING HOUSE"
     :width="size"
     :height="size"
     class="object-contain select-none"

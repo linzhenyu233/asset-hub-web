@@ -52,8 +52,11 @@ const submitting = ref(false)
 const errorMessage = ref('')
 /** 上一批上传结果的提示（成功后留在本页继续上传） */
 const resultMessage = ref('')
+/** 中性提示（例如自动忽略的文件夹条目） */
+const noticeMessage = ref('')
 
 const fileInput = ref<HTMLInputElement | null>(null)
+const folderInput = ref<HTMLInputElement | null>(null)
 const files = ref<PickedFile[]>([])
 const dragging = ref(false)
 /** 正在就地修改的素材名称（点击文件名进入编辑） */
@@ -146,6 +149,17 @@ function fileTypeText(item: PickedFile): string {
   return typeLabel(item.type)
 }
 
+/** 素材与活动包允许的扩展名 */
+const SUPPORTED_EXT = /\.(jpe?g|png|webp|gif|bmp|heic|avif|svg|mp4|mov|webm|avi|mkv|zip)$/i
+
+/**
+ * 拖拽目录时浏览器会把文件夹本身也作为一个 File 抛出（无扩展名、无 MIME、
+ * size 等于整个文件夹大小），这类条目无法上传，直接过滤。
+ */
+function isDirectoryLike(file: File): boolean {
+  return file.type === '' && !SUPPORTED_EXT.test(file.name)
+}
+
 function mimeGuessType(mime: string, filename: string): AssetType {
   if (mime.startsWith('image/')) return 'IMAGE'
   if (mime.startsWith('video/')) return 'VIDEO'
@@ -204,14 +218,26 @@ function addFiles(list: File[]) {
   if (submitting.value || list.length === 0) return
   errorMessage.value = ''
   resultMessage.value = ''
+  noticeMessage.value = ''
 
-  if (mode.value === 'task' && list.length > 1) {
+  // 拖拽文件夹时浏览器可能把文件夹本身也塞进来（无扩展名、无 MIME），直接过滤掉
+  const usable = list.filter((file) => !isDirectoryLike(file))
+  const skipped = list.length - usable.length
+  if (skipped > 0) {
+    noticeMessage.value = `已自动忽略 ${skipped} 个文件夹条目，只处理其中的图片、视频与 ZIP`
+  }
+  if (usable.length === 0) {
+    noticeMessage.value = '拖入的是文件夹，但没有读到可上传的文件，可以改用「选择文件夹」再试一次'
+    return
+  }
+
+  if (mode.value === 'task' && usable.length > 1) {
     errorMessage.value = '活动包任务一次只能上传一个 ZIP，已保留第一个文件'
   }
 
   const limit = fileLimit.value
   const accepted: File[] = []
-  for (const file of list) {
+  for (const file of usable) {
     if (files.value.length + accepted.length >= limit) {
       errorMessage.value = `单次最多上传 ${limit} 个文件，多余的已忽略`
       break
@@ -267,15 +293,99 @@ function pickFile() {
   fileInput.value?.click()
 }
 
+function pickFolder() {
+  if (submitting.value) return
+  folderInput.value?.click()
+}
+
 function onFileChange(event: Event) {
   const input = event.target as HTMLInputElement
   addFiles([...(input.files ?? [])])
   input.value = ''
 }
 
-function onDrop(event: DragEvent) {
+/** 拖入目录时最多扫描的文件数，避免误拖巨大文件夹把页面卡住 */
+const MAX_SCAN_FILES = 200
+
+function readAllEntries(reader: FileSystemDirectoryReader): Promise<FileSystemEntry[]> {
+  return new Promise((resolve) => {
+    const all: FileSystemEntry[] = []
+    const read = () => {
+      reader.readEntries(
+        (batch) => {
+          if (batch.length === 0) {
+            resolve(all)
+            return
+          }
+          all.push(...batch)
+          read()
+        },
+        () => resolve(all),
+      )
+    }
+    read()
+  })
+}
+
+async function walkEntry(
+  entry: FileSystemEntry,
+  out: Array<{ file: File; path: string }>,
+  counter: { scanned: number },
+): Promise<void> {
+  if (counter.scanned >= MAX_SCAN_FILES || out.length >= MAX_SCAN_FILES) return
+
+  if (entry.isFile) {
+    counter.scanned += 1
+    const file = await new Promise<File | null>((resolve) => {
+      ;(entry as FileSystemFileEntry).file(
+        (result) => resolve(result),
+        () => resolve(null),
+      )
+    })
+    if (file) out.push({ file, path: entry.fullPath || file.name })
+    return
+  }
+
+  // 目录最多展开 4 层，够覆盖「活动包/分类/日期/文件」这类常见结构
+  if (!entry.isDirectory || entry.fullPath.split('/').filter(Boolean).length > 4) return
+  const children = await readAllEntries((entry as FileSystemDirectoryEntry).createReader())
+  for (const child of children) await walkEntry(child, out, counter)
+}
+
+/** 从拖拽数据取文件：拖入文件夹时递归读取其中的文件，并按路径顺序排好 */
+async function filesFromDrop(dt: DataTransfer): Promise<{ files: File[]; scanned: number }> {
+  const entries = [...dt.items]
+    .map((item) => (item.kind === 'file' ? (item.webkitGetAsEntry?.() ?? null) : null))
+    .filter((entry): entry is FileSystemEntry => entry !== null)
+
+  if (entries.length === 0) return { files: [...dt.files], scanned: dt.files.length }
+
+  const collected: Array<{ file: File; path: string }> = []
+  const counter = { scanned: 0 }
+  for (const entry of entries) await walkEntry(entry, collected, counter)
+  collected.sort((a, b) => a.path.localeCompare(b.path, 'zh-Hans-CN', { numeric: true }))
+  return { files: collected.map((item) => item.file), scanned: counter.scanned }
+}
+
+async function onDrop(event: DragEvent) {
   dragging.value = false
-  addFiles([...(event.dataTransfer?.files ?? [])])
+  if (!event.dataTransfer || submitting.value) return
+
+  try {
+    const { files: dropped, scanned } = await filesFromDrop(event.dataTransfer)
+    if (dropped.length === 0) {
+      errorMessage.value = '没有从拖入内容里读到可上传的文件，试试用「选择文件 / 选择文件夹」'
+      return
+    }
+    addFiles(dropped)
+
+    if (scanned >= MAX_SCAN_FILES) {
+      const note = `文件夹内容较多，本次只读取了前 ${MAX_SCAN_FILES} 个文件`
+      errorMessage.value = errorMessage.value ? `${errorMessage.value}；${note}` : note
+    }
+  } catch {
+    errorMessage.value = '读取拖入内容失败，请改用「选择文件 / 选择文件夹」'
+  }
 }
 
 function removeFile(key: string) {
@@ -295,6 +405,7 @@ function switchMode(next: Mode) {
   mode.value = next
   errorMessage.value = ''
   resultMessage.value = ''
+  noticeMessage.value = ''
   // 任务包只接受单个 ZIP，切换模式时清掉素材清单避免误上传
   clearFiles()
 }
@@ -493,6 +604,14 @@ onMounted(() => {
         </div>
 
         <div
+          v-if="noticeMessage"
+          class="mb-4 flex items-start gap-2 rounded-control bg-feedback-info-bg px-3.5 py-3 text-[13px] leading-[19px] text-feedback-info"
+        >
+          <BaseIcon name="info" :size="18" class="mt-px" />
+          <span>{{ noticeMessage }}</span>
+        </div>
+
+        <div
           v-if="resultMessage"
           role="status"
           class="mb-4 flex items-center gap-2 rounded-control bg-feedback-success-bg px-3.5 py-3 text-[13px] leading-[19px] text-feedback-success"
@@ -565,7 +684,7 @@ onMounted(() => {
           </div>
 
           <div
-            class="mt-3 rounded-card border-2 border-dashed px-5 text-center transition-colors cursor-pointer"
+            class="relative mt-3 rounded-card border-2 border-dashed px-5 text-center transition-colors cursor-pointer"
             :class="[
               dragging ? 'border-brand-400 bg-brand-50' : 'border-neutral-200 bg-neutral-25 hover:border-brand-300',
               files.length > 0 ? 'py-3' : 'py-8',
@@ -584,16 +703,44 @@ onMounted(() => {
               </div>
               <p class="text-body text-neutral-700">点击选择文件，或拖拽到此处</p>
               <p class="text-micro text-neutral-400">
-                {{ mode === 'task' ? '活动包请压缩为 ZIP，发布后自动解压出包内图片与视频' : '支持一次选择多个图片、视频与活动包' }}
+                {{
+                  mode === 'task'
+                    ? '活动包请压缩为 ZIP，发布后自动解压出包内图片与视频'
+                    : '支持一次选择多个图片、视频与活动包，也可以把整个文件夹拖进来'
+                }}
               </p>
             </div>
 
-            <div v-else class="flex items-center justify-center gap-1.5 text-neutral-500">
-              <BaseIcon name="plus" :size="14" />
-              <span class="text-caption">
-                {{ mode === 'task' ? '重新选择 ZIP' : '继续添加文件' }}
+            <div v-else class="flex flex-wrap items-center justify-center gap-3 text-neutral-500">
+              <span class="inline-flex items-center gap-1.5">
+                <BaseIcon name="plus" :size="14" />
+                <span class="text-caption">{{ mode === 'task' ? '重新选择 ZIP' : '继续添加文件' }}</span>
               </span>
+              <template v-if="mode === 'material'">
+                <span class="h-3 w-px bg-neutral-200" />
+                <button
+                  type="button"
+                  class="inline-flex items-center gap-1 text-caption text-brand-600 transition-colors hover:text-brand-700"
+                  :disabled="submitting"
+                  @click.stop="pickFolder"
+                >
+                  <BaseIcon name="folder" :size="13" />
+                  选择文件夹
+                </button>
+              </template>
             </div>
+
+            <button
+              v-if="mode === 'material' && files.length === 0"
+              type="button"
+              class="absolute right-2 top-2 inline-flex h-7 items-center gap-1 rounded-sm px-2 text-micro text-neutral-500
+                transition-colors hover:bg-neutral-0 hover:text-brand-600 disabled:opacity-40"
+              :disabled="submitting"
+              @click.stop="pickFolder"
+            >
+              <BaseIcon name="folder" :size="12" />
+              选择文件夹
+            </button>
           </div>
 
           <!-- 已选文件清单：一行一个文件，底色表达队列状态 -->
@@ -689,6 +836,16 @@ onMounted(() => {
             class="hidden"
             :accept="acceptTypes"
             :multiple="mode === 'material'"
+            @change="onFileChange"
+          />
+          <!-- 选择整个文件夹（仅素材模式，任务包只接受单个 ZIP） -->
+          <input
+            v-if="mode === 'material'"
+            ref="folderInput"
+            type="file"
+            class="hidden"
+            multiple
+            webkitdirectory
             @change="onFileChange"
           />
         </div>

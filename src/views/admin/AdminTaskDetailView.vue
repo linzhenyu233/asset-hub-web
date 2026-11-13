@@ -4,6 +4,7 @@ import { useRoute, useRouter } from 'vue-router'
 import { adminTaskApi } from '../../api'
 import { ApiError } from '../../api/client'
 import type { Claim, TaskDetail } from '../../api/types'
+import { useBatchPreviews } from '../../composables/useBatchPreviews'
 import { assetTypeLabel, formatBytes, formatDateTime, formatPhone } from '../../utils/format'
 import BaseIcon from '../../components/ui/BaseIcon.vue'
 import EmptyState from '../../components/ui/EmptyState.vue'
@@ -30,6 +31,10 @@ const contentLines = computed(() => (task.value?.content ? task.value.content.sp
 /** 活动包解压出的子素材数量（未解包时为 0） */
 const childCount = computed(() => task.value?.activityAsset.children?.length ?? 0)
 
+/** 活动包封面：用包内第一个图片/视频（后端 cover 字段，缺省时回查详情） */
+const { thumbs, frames, load: loadThumbs, reset: resetThumbs, markBroken, kindOf, revealFrame } =
+  useBatchPreviews()
+
 let keywordTimer: number | undefined
 
 watch(claimKeyword, () => {
@@ -47,8 +52,12 @@ async function loadTask() {
   errorMessage.value = ''
   try {
     task.value = await adminTaskApi.detail(taskId)
+    // 活动包本身是 ZIP，封面取包内第一个可见图片/视频
+    if (task.value?.activityAsset) loadThumbs([task.value.activityAsset])
+    else resetThumbs()
   } catch (error) {
     task.value = null
+    resetThumbs()
     if (error instanceof ApiError && error.status === 404) errorMessage.value = '任务不存在'
     else errorMessage.value = error instanceof Error ? error.message : '任务详情加载失败'
   } finally {
@@ -207,13 +216,46 @@ onMounted(() => {
         <h2 class="section-title">本次活动包</h2>
         <div class="mt-3 rounded-card border border-neutral-100 overflow-hidden">
           <div
-            class="aspect-[16/9] flex items-center justify-center text-white/85"
-            :class="task.activityAsset.assetType === 'IMAGE' ? 'bg-thumb-rose' : 'bg-thumb-gold'"
+            class="relative aspect-[16/9] flex items-center justify-center overflow-hidden text-white/85"
+            :class="
+              thumbs[task.activityAsset.id]
+                ? 'bg-white'
+                : task.activityAsset.assetType === 'IMAGE'
+                  ? 'bg-thumb-rose'
+                  : 'bg-thumb-gold'
+            "
           >
             <BaseIcon
+              v-if="!thumbs[task.activityAsset.id]"
               :name="task.activityAsset.assetType === 'IMAGE' ? 'image' : task.activityAsset.assetType === 'VIDEO' ? 'video' : 'folder'"
               :size="40"
               :stroke-width="1.2"
+            />
+            <!-- 视频首帧没出来时先显示包图标，避免空白 -->
+            <BaseIcon
+              v-else-if="kindOf(task.activityAsset) === 'VIDEO' && !frames[task.activityAsset.id]"
+              name="folder"
+              :size="40"
+              :stroke-width="1.2"
+              class="text-neutral-300"
+            />
+            <img
+              v-if="thumbs[task.activityAsset.id] && kindOf(task.activityAsset) === 'IMAGE'"
+              :src="thumbs[task.activityAsset.id]"
+              :alt="task.activityAsset.name"
+              class="absolute inset-0 w-full h-full object-contain bg-white"
+              @error="markBroken(task.activityAsset.id)"
+            />
+            <video
+              v-else-if="thumbs[task.activityAsset.id] && kindOf(task.activityAsset) === 'VIDEO'"
+              :src="thumbs[task.activityAsset.id]"
+              class="absolute inset-0 w-full h-full object-cover bg-neutral-900 transition-opacity duration-200"
+              :class="frames[task.activityAsset.id] ? 'opacity-100' : 'opacity-0'"
+              muted
+              playsinline
+              preload="metadata"
+              @loadeddata="revealFrame(task.activityAsset.id, $event)"
+              @error="markBroken(task.activityAsset.id)"
             />
           </div>
           <div class="p-3">

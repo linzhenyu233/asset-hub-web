@@ -14,6 +14,14 @@ export interface ThumbAsset {
 /** 缩略图来源类型：图片直接用 img，视频取首帧用 video */
 export type ThumbKind = 'IMAGE' | 'VIDEO'
 
+/** 按票据返回的 mimeType 判断缩略图渲染方式（无法判断时返回 null） */
+function kindByMime(mime: string | undefined): ThumbKind | null {
+  if (!mime) return null
+  if (mime.startsWith('video/')) return 'VIDEO'
+  if (mime.startsWith('image/')) return 'IMAGE'
+  return null
+}
+
 /** 活动包封面：优先包内第一张图片，没有图片再取第一个视频 */
 function pickCover(
   children: Array<{ id: string; assetType: string }> | undefined,
@@ -148,10 +156,15 @@ export function useBatchPreviews() {
       if (current !== seq) return
 
       const urlOf: Record<string, string> = {}
+      const mimeOf: Record<string, string> = {}
       const errorOf: Record<string, string> = {}
       for (const item of res.items) {
-        if ('url' in item) urlOf[item.assetId] = resolveFileUrl(item.url)
-        else errorOf[item.assetId] = item.error.message
+        if ('url' in item) {
+          urlOf[item.assetId] = resolveFileUrl(item.url)
+          mimeOf[item.assetId] = item.mimeType
+        } else {
+          errorOf[item.assetId] = item.error.message
+        }
       }
 
       const nextThumbs: Record<string, string> = {}
@@ -161,7 +174,9 @@ export function useBatchPreviews() {
       for (const asset of direct) {
         if (urlOf[asset.id]) {
           nextThumbs[asset.id] = urlOf[asset.id]
-          nextKinds[asset.id] = asset.assetType === 'VIDEO' ? 'VIDEO' : 'IMAGE'
+          // 票据里的 mimeType 最准；调用方没给 assetType 时也能正确选 img / video
+          nextKinds[asset.id] =
+            kindByMime(mimeOf[asset.id]) ?? (asset.assetType === 'VIDEO' ? 'VIDEO' : 'IMAGE')
         } else if (errorOf[asset.id]) {
           nextFailures[asset.id] = errorOf[asset.id]
         }
@@ -170,7 +185,7 @@ export function useBatchPreviews() {
       for (const cover of covers) {
         if (urlOf[cover.assetId]) {
           nextThumbs[cover.archiveId] = urlOf[cover.assetId]
-          nextKinds[cover.archiveId] = cover.kind
+          nextKinds[cover.archiveId] = kindByMime(mimeOf[cover.assetId]) ?? cover.kind
         } else if (errorOf[cover.assetId]) {
           nextFailures[cover.archiveId] = errorOf[cover.assetId]
         }
