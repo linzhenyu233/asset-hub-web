@@ -371,7 +371,7 @@ onMounted(load)
       :title="confirm.action === 'publish' ? '上架素材' : '下架素材'"
       :description="
         confirm.action === 'publish'
-          ? '上架后门店员工可在素材发现中看到并下载该素材。'
+          ? '上架后小程序里就能看到并下载该素材。'
           : '下架后员工将无法继续下载，已产生的下载记录不会回滚。'
       "
       :width="440"

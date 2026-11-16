@@ -295,7 +295,7 @@ onMounted(() => {
             <EmptyState
               icon="users"
               title="暂无领取记录"
-              description="员工在门店端领取任务后，这里会显示员工、门店与领取时间。"
+              description="员工在小程序里领取任务后，这里会显示员工、门店与领取时间。"
             />
           </div>
 

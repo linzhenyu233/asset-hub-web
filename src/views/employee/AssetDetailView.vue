@@ -92,7 +92,7 @@ onMounted(load)
 
 <template>
   <div class="min-h-screen bg-neutral-50">
-    <!-- 员工端顶栏：与门店端视觉保持一致，额外提供返回管理端入口 -->
+    <!-- 员工端顶栏：与小程序端视觉保持一致，额外提供返回管理端入口 -->
     <header class="h-topbar bg-neutral-0 border-b border-neutral-200">
       <div class="h-full w-full px-4 sm:px-10 flex items-center gap-3">
         <BrandMark variant="dark" :size="24" />
@@ -138,7 +138,7 @@ onMounted(load)
           class="mb-4 rounded-card border border-feedback-warning bg-feedback-warning-bg px-4 py-3"
         >
           <p class="text-caption font-medium text-feedback-warning">
-            该素材当前为「{{ statusText }}」，门店员工在素材发现中看不到它
+            该素材当前为「{{ statusText }}」，小程序里看不到它
           </p>
           <p class="mt-1 text-micro text-neutral-600 leading-[16px]">
             本页是管理端的预览视图；员工只能浏览并下载已上架的素材。

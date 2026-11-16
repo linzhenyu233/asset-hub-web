@@ -58,7 +58,7 @@ onMounted(load)
 
 <template>
   <div class="animate-fade-up">
-    <PageHeader title="任务管理" subtitle="发布活动任务并查看门店领取情况">
+    <PageHeader title="任务管理" subtitle="发布活动任务并查看小程序领取情况">
       <template #actions>
         <button type="button" class="btn btn-secondary btn-sm" :disabled="loading" @click="load">
           <BaseIcon name="refresh" :size="16" />
@@ -99,7 +99,7 @@ onMounted(load)
       <EmptyState
         icon="clipboard"
         title="暂无任务"
-        :description="hasFilter ? '没有匹配的任务，试试其他关键词。' : '发布第一个活动任务，让门店员工领取素材。'"
+        :description="hasFilter ? '没有匹配的任务，试试其他关键词。' : '发布第一个活动任务，让员工在小程序里领取素材。'"
       >
         <template #action>
           <button type="button" class="btn btn-primary" @click="router.push('/admin/upload?mode=task')">

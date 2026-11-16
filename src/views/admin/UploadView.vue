@@ -61,7 +61,7 @@ const resultMessage = ref('')
 /**
  * 入库后立即上架：创建草稿接口（POST /admin/assets）不接收状态，
  * 只能是「先建草稿、再逐个调 publish」，这里统一编排，省去入库后再去素材库一个个点。
- * 默认关闭：上架后门店立刻可见，属于对外动作，需要显式勾选。
+ * 默认关闭：上架后小程序立刻可见，属于对外动作，需要显式勾选。
  */
 const publishAfterUpload = ref(false)
 /** 结果条右侧的去处（素材库 / 任务管理），随模式变化 */
@@ -478,7 +478,7 @@ const submitLabel = computed(() => {
     return publishAfterUpload.value ? '上传并上架中…' : '入库中…'
   }
   if (mode.value === 'task') return '上传并发布任务'
-  const verb = publishAfterUpload.value ? '上架' : '入库'
+  const verb = publishAfterUpload.value ? '上架小程序' : '入库'
   return files.value.length > 1 ? `上传并${verb}（${files.value.length}）` : `上传并${verb}`
 })
 
@@ -560,7 +560,7 @@ async function submitMaterial() {
     resultMessage.value =
       publishFailed.length > 0
         ? `已入库 ${done} 个素材，其中 ${published} 个已上架；${publishFailed.length} 个上架失败（${publishFailed.join('、')}），请到素材库手动上架`
-        : `已入库并上架 ${done} 个素材，门店现在就能看到`
+        : `已入库并上架 ${done} 个素材，小程序现在就能看到`
     success(publishFailed.length > 0 ? `已入库 ${done} 个素材，${published} 个已上架` : `已入库并上架 ${done} 个素材`)
   } else {
     resultMessage.value = `已入库 ${done} 个素材，可继续上传，或前往素材库上架`
@@ -804,22 +804,22 @@ onMounted(() => {
           <div class="rounded-control border border-neutral-100 bg-neutral-25 px-4 py-3.5">
             <div class="flex items-start justify-between gap-4">
               <div class="min-w-0">
-                <p class="text-body font-medium text-neutral-900">入库后立即上架</p>
+                <p class="text-body font-medium text-neutral-900">是否直接上架小程序</p>
                 <p class="mt-1 text-micro leading-[16px] text-neutral-500">
-                  开启：上传完成即上架，门店立刻可见；关闭：先存为草稿，之后在素材管理里手动上架。
+                  开启：上传完成并上架，小程序立刻可见内容；关闭：先存为草稿，之后可在素材管理里手动上架。
                 </p>
               </div>
               <button
                 type="button"
                 role="switch"
                 :aria-checked="publishAfterUpload"
-                :title="publishAfterUpload ? '关闭后入库为草稿' : '开启后上传完成即上架'"
+                :title="publishAfterUpload ? '关闭后入库为草稿' : '开启后上传完成即上架小程序'"
                 class="relative mt-0.5 h-6 w-11 shrink-0 rounded-pill transition-colors duration-fast ease-standard
                   focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
                 :class="publishAfterUpload ? 'bg-brand-500' : 'bg-neutral-300'"
                 @click="publishAfterUpload = !publishAfterUpload"
               >
-                <span class="sr-only">入库后立即上架</span>
+                <span class="sr-only">是否直接上架小程序</span>
                 <span
                   class="absolute left-0.5 top-0.5 h-5 w-5 rounded-pill bg-white shadow-sm transition-transform duration-fast ease-standard"
                   :class="publishAfterUpload ? 'translate-x-5' : 'translate-x-0'"
@@ -1087,22 +1087,22 @@ onMounted(() => {
             </li>
             <li class="flex gap-3">
               <span class="w-5 h-5 shrink-0 rounded-pill bg-brand-100 text-brand-600 text-micro font-medium flex items-center justify-center">2</span>
-              <span>系统自动识别格式与类型；点文件名可改成门店看到的名字。</span>
+              <span>系统自动识别格式与类型；点文件名可改小程序里看到的名字。</span>
             </li>
             <li class="flex gap-3">
               <span class="w-5 h-5 shrink-0 rounded-pill bg-brand-100 text-brand-600 text-micro font-medium flex items-center justify-center">3</span>
-              <span>点「上传并上架」，按清单顺序逐个上传，每行实时显示进度。</span>
+              <span>点「上传并上架小程序」，按清单顺序逐个上传，每行实时显示进度。</span>
             </li>
             <li class="flex gap-3">
               <span class="w-5 h-5 shrink-0 rounded-pill bg-brand-100 text-brand-600 text-micro font-medium flex items-center justify-center">4</span>
-              <span>开启「入库后立即上架」时上传完成即上架；关闭则存为「草稿」，需到素材管理上架，门店才能看到并下载。</span>
+              <span>开启「是否直接上架小程序」时上传完成即上架；关闭则存为「草稿」，需到素材管理上架，小程序才能看到并下载。</span>
             </li>
           </ol>
 
           <ol v-else class="mt-4 space-y-3.5 text-caption text-neutral-600 leading-[20px]">
             <li class="flex gap-3">
               <span class="w-5 h-5 shrink-0 rounded-pill bg-brand-100 text-brand-600 text-micro font-medium flex items-center justify-center">1</span>
-              <span>填写任务标题与内容，可设置领取截止时间；门店在领取页看到的就是这两段文字。</span>
+              <span>填写任务标题与内容，可设置领取截止时间；小程序领取页看到的就是这两段文字。</span>
             </li>
             <li class="flex gap-3">
               <span class="w-5 h-5 shrink-0 rounded-pill bg-brand-100 text-brand-600 text-micro font-medium flex items-center justify-center">2</span>
