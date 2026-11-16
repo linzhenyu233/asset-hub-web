@@ -3,9 +3,11 @@ import { mockRequest } from '../mock'
 
 /**
  * 预览模式：登录接口尚未部署时使用内置演示数据，跳过登录。
- * 默认开启；在 .env.local 设置 VITE_PREVIEW=false 即切回真实后端。
+ * 开发环境默认开启，生产构建默认关闭——漏配环境变量的线上包不能变成演示后台
+ * （演示模式下登录是本地明文比对、写入只落内存）。两种情况都可用 VITE_PREVIEW 覆盖。
  */
-export const PREVIEW = String(import.meta.env.VITE_PREVIEW ?? 'true') !== 'false'
+export const PREVIEW =
+  String(import.meta.env.VITE_PREVIEW ?? (import.meta.env.DEV ? 'true' : 'false')) !== 'false'
 
 function sleep(ms: number): Promise<void> {
   return new Promise((resolve) => window.setTimeout(resolve, ms))

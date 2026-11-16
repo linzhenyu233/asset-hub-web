@@ -30,8 +30,10 @@ interface PickedFile {
   inspecting: boolean
   /** 本次上传使用的素材类型：按真实字节识别 */
   type: AssetType
-  /** 该文件当前不能上传的原因（格式不支持 / 分类不允许 / 上次上传失败） */
+  /** 不能开始上传的原因（格式不支持 / 分类不允许），会禁用提交按钮 */
   error: string
+  /** 上一次上传失败的原因：只用于展示，修正后可以直接重试 */
+  failure: string
   /** 本地预览地址（图片/视频用于清单缩略图，ZIP 为空） */
   previewUrl: string
   /** 缩略图无法解码时退回类型图标 */
@@ -151,8 +153,9 @@ function rowClass(item: PickedFile): string {
 
 /** 第二行「大小 · 状态」里的状态文案 */
 function statusText(item: PickedFile): string {
-  if (item.status === 'failed') return item.error || '上传失败'
+  // 前置校验错误优先生效：它会把提交按钮禁用，行内必须说明原因
   if (item.error) return item.error
+  if (item.status === 'failed') return item.failure || '上传失败'
   if (item.status === 'uploading') return item.percent >= 100 ? '正在校验…' : `上传中 ${item.percent}%`
   if (item.status === 'done') return '上传完成'
   if (item.status === 'inspecting' || item.inspecting) return '识别中…'
@@ -287,6 +290,7 @@ function addFiles(list: File[]) {
     inspecting: true,
     type: mimeGuessType(file.type, file.name),
     error: '',
+    failure: '',
     previewUrl: createPreviewUrl(file),
     thumbBroken: false,
     thumbLoaded: false,
@@ -497,6 +501,7 @@ async function submitMaterial() {
   // 重试前清掉上一次的失败标记
   targets.forEach((item) => {
     item.error = ''
+    item.failure = ''
     item.status = 'idle'
     item.percent = 0
   })
@@ -535,7 +540,8 @@ async function submitMaterial() {
     } catch (error) {
       entry.status = 'failed'
       entry.percent = 0
-      entry.error = error instanceof Error ? error.message : '入库失败，请重试'
+      // 不写进 error：那是不允许上传的前置校验，会把提交按钮永久禁用、退不掉
+      entry.failure = error instanceof Error ? error.message : '入库失败，请重试'
       failedKeys.push(entry.key)
     }
   }

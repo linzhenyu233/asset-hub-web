@@ -69,6 +69,8 @@ async function load() {
 
 /** 聚合需要把当前筛选下的记录一次取回，超过上限时只统计最近的部分并提示 */
 const AGGREGATE_LIMIT = 2000
+/** 后端 pageSize 上限是 100（超出按 100 返回），所以只能按页累加 */
+const AGGREGATE_PAGE_SIZE = 100
 
 interface AssetGroup {
   assetId: string
@@ -124,15 +126,28 @@ function groupKind(assetId: string) {
   return kindOf({ id: assetId, assetType: 'IMAGE' })
 }
 
+/** 按页取到 AGGREGATE_LIMIT（或取满 total）：一次请求会被后端截到 100 条，统计会少 */
+async function fetchAggregateLogs(): Promise<{ logs: DownloadLog[]; total: number }> {
+  const logs: DownloadLog[] = []
+  let total = 0
+  for (let page = 1; logs.length < AGGREGATE_LIMIT; page += 1) {
+    const res = await logApi.downloads({ page, pageSize: AGGREGATE_PAGE_SIZE, ...query() })
+    total = res.total
+    logs.push(...res.items)
+    if (res.items.length < AGGREGATE_PAGE_SIZE || logs.length >= total) break
+  }
+  return { logs: logs.slice(0, AGGREGATE_LIMIT), total }
+}
+
 async function loadAggregate() {
   aggLoading.value = true
   errorMessage.value = ''
   try {
-    const res = await logApi.downloads({ page: 1, pageSize: AGGREGATE_LIMIT, ...query() })
-    aggTotal.value = res.total
+    const { logs, total } = await fetchAggregateLogs()
+    aggTotal.value = total
 
     const map = new Map<string, AssetGroup & { userIds: Set<string> }>()
-    for (const log of res.items) {
+    for (const log of logs) {
       const current =
         map.get(log.assetId) ??
         {

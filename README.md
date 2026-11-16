@@ -6,7 +6,7 @@
 - 接口规范：`docs/openapi.json`（v2.12.0，来源 `https://dssczt.shininghouse.vip/go/sczt/v1/api-docs`）
 - 设计令牌：严格取自 `tokens.json`（Ardot 文件 734820516311557 导出），并遵循 `DESIGN.md` / `COMPONENTS.md`
 
-## 当前状态：预览模式（默认开启）
+## 当前状态：预览模式（开发环境默认开启）
 
 登录由 `src/mock/accounts.ts` 的本地账号目录校验，会真实区分管理员与非管理员：
 
@@ -23,7 +23,8 @@
 - 顶栏右上角有「演示数据」标识
 - 上传会模拟进度并落库到内存；下载会生成一个占位文本文件，用于验证交互链路
 
-**接口上线后切回真实后端**：在项目根目录新建 `.env.local`：
+**接口上线后切回真实后端**：`npm run build` 的生产包默认就是真实后端（`VITE_PREVIEW` 只在开发环境默认开启），
+避免漏配环境变量把演示后台发上线。想在开发环境也用真实接口，在项目根目录新建 `.env.local`：
 
 ```
 VITE_PREVIEW=false
