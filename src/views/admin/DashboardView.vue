@@ -53,7 +53,8 @@ const kpis = computed(() => {
       value: d.employeeCount,
       icon: 'user',
       tone: 'neutral',
-      hint: d.employeeCount ? `${percent(d.participantCount, d.employeeCount)}% 参与过任务` : '等待员工激活',
+      // 参与率已经写在「参与员工数」的提示里，这里只补没参与的人数，别把同一个百分比念两遍
+      hint: d.employeeCount ? `未参与 ${d.employeeCount - d.participantCount} 人` : '等待员工激活',
     },
   ]
 })
@@ -296,22 +297,20 @@ onMounted(() => {
                 <div class="h-full bg-neutral-300" :style="{ width: `${item.widths[1]}%` }" />
                 <div class="h-full bg-neutral-200" :style="{ width: `${item.widths[2]}%` }" />
               </div>
+              <!-- 只显示非 0 的状态：一堆「已下架 0」只是噪音 -->
               <div class="mt-1.5 flex items-center gap-4 text-micro text-neutral-500">
-                <span>已上架 {{ item.published }}</span>
-                <span>已下架 {{ item.offline }}</span>
-                <span>草稿 {{ item.draft }}</span>
+                <span v-if="item.published > 0">已上架 {{ item.published }}</span>
+                <span v-if="item.offline > 0">已下架 {{ item.offline }}</span>
+                <span v-if="item.draft > 0">草稿 {{ item.draft }}</span>
               </div>
             </div>
           </div>
         </section>
 
         <aside class="space-y-4">
-          <!-- 素材状态构成 -->
+          <!-- 素材状态构成（上架率已在左侧标题里，这里不再重复） -->
           <div class="card p-5">
-            <div class="flex items-center justify-between gap-3">
-              <h2 class="section-title">素材状态构成</h2>
-              <span class="badge badge-brand shrink-0">上架率 {{ publishedRate }}%</span>
-            </div>
+            <h2 class="section-title">素材状态构成</h2>
             <div class="mt-4 flex items-center gap-5">
               <div
                 class="relative w-[116px] h-[116px] shrink-0 rounded-pill"
@@ -345,8 +344,8 @@ onMounted(() => {
             </div>
           </div>
 
-          <!-- 三步上手 -->
-          <div class="card p-5">
+          <!-- 三步上手：三步都做完后整张卡自己消失，不再长期占地方 -->
+          <div v-if="steps.some((step) => !step.done)" class="card p-5">
             <div class="flex items-center gap-2 text-brand-700">
               <BaseIcon name="sparkles" :size="16" />
               <span class="text-caption font-medium">三步完成一次分发</span>

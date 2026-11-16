@@ -1,14 +1,16 @@
 <script setup lang="ts">
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
-import { logApi } from '../../api'
+import { adminAssetApi, employeeApi, logApi } from '../../api'
 import type { DownloadLog } from '../../api/types'
 import { useBatchPreviews } from '../../composables/useBatchPreviews'
-import { formatDateTime, nextDayStart } from '../../utils/format'
+import { assetTypeLabel, formatBytes, formatDateTime, nextDayStart } from '../../utils/format'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import BaseIcon from '../../components/ui/BaseIcon.vue'
 import EmptyState from '../../components/ui/EmptyState.vue'
+import EntityPicker from '../../components/ui/EntityPicker.vue'
 import PaginationBar from '../../components/ui/PaginationBar.vue'
+import type { PickerOption } from '../../components/ui/picker'
 
 const router = useRouter()
 
@@ -26,21 +28,45 @@ const loading = ref(true)
 const errorMessage = ref('')
 
 const filters = reactive({
-  userId: '',
-  assetId: '',
   from: '',
   to: '',
 })
 
+/** 员工 / 素材都按名称选：使用者记不住 ID，选中项里带着后端要的 ID */
+const employeeFilter = ref<PickerOption | null>(null)
+const assetFilter = ref<PickerOption | null>(null)
+
+function searchEmployees(keyword: string): Promise<PickerOption[]> {
+  return employeeApi.list({ page: 1, pageSize: 20, keyword }).then((res) =>
+    res.items.map((item) => ({
+      id: item.id,
+      label: item.displayName || '未登记姓名',
+      hint: [item.employeeId ? `工号 ${item.employeeId}` : '', item.phone || '']
+        .filter(Boolean)
+        .join(' · '),
+    })),
+  )
+}
+
+function searchAssets(keyword: string): Promise<PickerOption[]> {
+  return adminAssetApi.list({ page: 1, pageSize: 20, keyword }).then((res) =>
+    res.items.map((item) => ({
+      id: item.id,
+      label: item.name,
+      hint: `${assetTypeLabel(item.assetType)} · ${formatBytes(item.fileSize)}`,
+    })),
+  )
+}
+
 const hasFilter = computed(
-  () => Boolean(filters.userId || filters.assetId || filters.from || filters.to),
+  () => Boolean(employeeFilter.value || assetFilter.value || filters.from || filters.to),
 )
 
-/** 两个视图共用的查询参数：用户手输的素材 ID 优先，其次是聚合钻取的素材 */
+/** 两个视图共用的查询参数：手选的素材优先，其次是聚合钻取的素材 */
 function query() {
   return {
-    userId: filters.userId.trim() || undefined,
-    assetId: filters.assetId.trim() || drillAssetId.value || undefined,
+    userId: employeeFilter.value?.id,
+    assetId: assetFilter.value?.id || drillAssetId.value || undefined,
     from: filters.from ? `${filters.from} 00:00:00` : undefined,
     // 后端 to 为开区间（< to），传次日 00:00:00 才能包含当天全天
     to: filters.to ? nextDayStart(filters.to) : undefined,
@@ -223,7 +249,7 @@ function openAggregate() {
 }
 
 watch(
-  () => [filters.userId, filters.assetId, filters.from, filters.to],
+  () => [employeeFilter.value?.id, assetFilter.value?.id, filters.from, filters.to],
   () => {
     if (view.value === 'asset') {
       aggPage.value = 1
@@ -249,17 +275,14 @@ watch(view, (next) => {
   if (next === 'detail') resetThumbs()
 })
 
+/** 清空筛选：上面的 watcher 会回第 1 页并重查，这里只清值 */
 function resetFilters() {
-  filters.userId = ''
-  filters.assetId = ''
+  employeeFilter.value = null
+  assetFilter.value = null
   filters.from = ''
   filters.to = ''
   drillAssetId.value = ''
   drillAssetName.value = ''
-  page.value = 1
-  aggPage.value = 1
-  if (view.value === 'asset') loadAggregate()
-  else load()
 }
 
 onMounted(load)
@@ -305,12 +328,24 @@ onMounted(load)
     <div class="card p-4 mb-4">
       <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5">
         <div>
-          <label class="label" for="dl-user">员工 ID</label>
-          <input id="dl-user" v-model="filters.userId" class="input" type="text" placeholder="按员工筛选" />
+          <p class="label">员工</p>
+          <EntityPicker
+            v-model="employeeFilter"
+            :search="searchEmployees"
+            aria-label="按员工筛选"
+            placeholder="按姓名 / 工号 / 手机号搜索"
+            empty-hint="输入姓名 / 工号 / 手机号后显示候选"
+          />
         </div>
         <div>
-          <label class="label" for="dl-asset">素材 ID</label>
-          <input id="dl-asset" v-model="filters.assetId" class="input" type="text" placeholder="按素材筛选" />
+          <p class="label">素材</p>
+          <EntityPicker
+            v-model="assetFilter"
+            :search="searchAssets"
+            aria-label="按素材筛选"
+            placeholder="按素材名称搜索"
+            empty-hint="输入素材名称后显示候选"
+          />
         </div>
         <div>
           <label class="label" for="dl-from">开始日期</label>

@@ -253,7 +253,6 @@ onMounted(load)
                   </span>
                   <div class="min-w-0">
                     <p class="text-body font-medium text-neutral-900 truncate">{{ displayNameOf(employee) }}</p>
-                    <p class="text-micro text-neutral-400">#{{ employee.id }}</p>
                   </div>
                 </div>
               </td>
