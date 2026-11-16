@@ -157,6 +157,7 @@ onMounted(() => {
 </script>
 
 <template>
+  <!-- 内容宽度由路由 meta.wide 经 AppShell 统一控制，这里不要再加 mx-auto max-w -->
   <div class="animate-fade-up">
     <div class="flex items-center justify-between gap-3 mb-5">
       <button type="button" class="btn btn-secondary btn-sm" @click="router.push('/admin/tasks')">

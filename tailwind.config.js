@@ -114,7 +114,6 @@ export default {
       /* 大屏断点：2K/4K 显示器下把内容区继续放宽，避免两侧大片空白 */
       screens: {
         '3xl': '1920px',
-        '4xl': '2400px',
       },
       backgroundImage: {
         'brand-panel': 'linear-gradient(135deg, #E85D8E 0%, #A82F5C 100%)',

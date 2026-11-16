@@ -187,6 +187,7 @@ onMounted(() => {
 </script>
 
 <template>
+  <!-- 内容宽度由路由 meta.wide 经 AppShell 统一控制，这里不要再加 mx-auto max-w -->
   <div class="animate-fade-up">
     <PageHeader
       title="数据总览"
