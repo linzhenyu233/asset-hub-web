@@ -282,7 +282,7 @@ onMounted(load)
       <aside class="space-y-4">
         <div class="card p-5">
           <div class="flex items-start justify-between gap-3">
-            <h1 class="text-h2 font-bold text-neutral-900 leading-[28px]">{{ asset.name }}</h1>
+            <h1 class="min-w-0 break-words text-h2 font-bold text-neutral-900 leading-[28px]">{{ asset.name }}</h1>
             <StatusBadge :status="asset.status" />
           </div>
           <div class="mt-3 flex items-center gap-2 flex-wrap">

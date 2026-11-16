@@ -36,6 +36,16 @@
     background: #fce0eb;
     color: #b23464;
   }
+
+  /*
+   * Edge / IE 会在密码框内注入原生的「显示密码」「清除」控件（::-ms-reveal / ::-ms-clear）。
+   * 本项目所有密码框都自带眼睛按钮，原生控件会和它并排出现两个按钮，这里统一关掉。
+   * 只在有输入内容时才会冒出来，所以表现为「粘贴密码后多出一个图标」。
+   */
+  input::-ms-reveal,
+  input::-ms-clear {
+    display: none;
+  }
 }
 
 @layer components {
@@ -142,7 +152,9 @@
 
   /* ---------- Badge ---------- */
   .badge {
-    @apply inline-flex items-center justify-center gap-1 rounded-pill px-2.5 py-1 text-caption font-medium leading-none;
+    /* whitespace-nowrap + shrink-0：徽章是原子元素，不能被父级 flex 压缩成竖排（如「已上架」断成两行） */
+    @apply inline-flex items-center justify-center gap-1 rounded-pill px-2.5 py-1 text-caption font-medium leading-none
+      whitespace-nowrap shrink-0;
   }
 
   .badge-success {
@@ -174,8 +186,9 @@
     @apply bg-status-claimed-bg text-status-claimed;
   }
 
+  /* 「已上架」用品牌粉，与灰色「已下架」在同一列表里一眼区分 */
   .badge-published {
-    @apply bg-status-published-bg text-status-published;
+    @apply bg-brand-100 text-brand-700;
   }
 
   .badge-offline {
