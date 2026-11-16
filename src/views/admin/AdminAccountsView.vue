@@ -159,7 +159,7 @@ onMounted(load)
         </button>
         <button type="button" class="btn btn-primary btn-sm" :disabled="forbidden" @click="openCreate">
           <BaseIcon name="plus" :size="16" />
-          新建子账号
+          新建管理员子账号
         </button>
       </template>
     </PageHeader>
@@ -218,7 +218,7 @@ onMounted(load)
       >
         <template #action>
           <button v-if="keyword" type="button" class="btn btn-secondary" @click="keyword = ''">清空搜索</button>
-          <button v-else type="button" class="btn btn-primary" @click="openCreate">新建子账号</button>
+          <button v-else type="button" class="btn btn-primary" @click="openCreate">新建管理员子账号</button>
         </template>
       </EmptyState>
     </div>
@@ -270,7 +270,7 @@ onMounted(load)
     <!-- 新建子账号 -->
     <BaseModal
       :open="create.open"
-      title="新建管理子账号"
+      title="新建管理员子账号"
       description="子账号可登录后台处理素材与任务，但不能创建其他账号。"
       :width="480"
       @close="create.open = false"
