@@ -82,6 +82,49 @@ export interface AdminAccountStatusInput {
   status: AdminAccountStatus
 }
 
+/* ---------------- 员工账号（v2.12.0，管理员可查询与启停） ---------------- */
+
+export type EmployeeAccountStatus = 'ACTIVE' | 'DISABLED'
+
+/**
+ * 本系统已建档员工的基本信息。
+ * 不含密码、门店、建档时间与 ERP 快照；姓名 / 工号 / 手机号 / 最近登录时间缺失时为 null。
+ */
+export interface EmployeeAccount {
+  /** 本系统员工用户 ID，详情与启停接口使用此字段 */
+  id: string
+  /** ERP 工号，历史资料缺失时为 null */
+  employeeId: string | null
+  displayName: string | null
+  /** 规范手机号 */
+  phone: string | null
+  status: EmployeeAccountStatus
+  /** 是否尚未完成首次改密（初始密码为工号重复两次） */
+  mustChangePassword: boolean
+  /** 最近成功登录时间，从未登录为 null */
+  lastLoginAt: string | null
+}
+
+export interface EmployeeAccountPage {
+  items: EmployeeAccount[]
+  total: number
+  page: number
+  pageSize: number
+}
+
+export interface EmployeeAccountFilters {
+  page?: number
+  pageSize?: number
+  /** 工号、姓名、手机号或门店关键词 */
+  keyword?: string
+  /** 不传则返回启用及停用员工 */
+  status?: EmployeeAccountStatus | ''
+}
+
+export interface EmployeeAccountStatusInput {
+  status: EmployeeAccountStatus
+}
+
 /* ---------------- 在线预览 ---------------- */
 
 export interface PreviewResult {

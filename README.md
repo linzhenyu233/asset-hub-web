@@ -1,9 +1,9 @@
 # 素材中心 · 前端（Asset Hub Web）
 
-独立于 `Media-hub` 的新数据中台前端，对接「图片视频素材中台 API」v2.11.0。
+独立于 `Media-hub` 的新数据中台前端，对接「图片视频素材中台 API」v2.12.0。
 只负责页面与接口调用，**不含后端实现**。以总部管理端为主，并提供「员工视角」预览页（`/assets/:id`）。
 
-- 接口规范：`docs/openapi.json`（v2.11.0，来源 `https://dssczt.shininghouse.vip/go/sczt/v1/api-docs`）
+- 接口规范：`docs/openapi.json`（v2.12.0，来源 `https://dssczt.shininghouse.vip/go/sczt/v1/api-docs`）
 - 设计令牌：严格取自 `tokens.json`（Ardot 文件 734820516311557 导出），并遵循 `DESIGN.md` / `COMPONENTS.md`
 
 ## 当前状态：预览模式（默认开启）
@@ -102,6 +102,9 @@ VITE_PROXY_TARGET=http://192.168.30.239:20011
 | 账号 · 修改密码（含首次强制改密） | `PUT /api/account/password` |
 | 账号管理 · 子账号列表 / 创建 | `GET /api/admin/accounts`、`POST /api/admin/accounts` |
 | 账号管理 · 启用 / 停用 | `PUT /api/admin/accounts/{id}/status` |
+| 员工账号 · 列表（分页 / 搜索 / 状态筛选） | `GET /api/admin/employees` |
+| 员工账号 · 详情 | `GET /api/admin/employees/{id}` |
+| 员工账号 · 启用 / 停用 | `PUT /api/admin/employees/{id}/status` |
 | 素材预览 · 单项票据 | `POST /api/admin/assets/{id}/preview` |
 | 素材预览 · 列表批量票据 | `POST /api/admin/assets/previews` |
 | 素材预览 · 票据内容 | `GET /api/previews/{ticket}`、`HEAD /api/previews/{ticket}` |
@@ -127,7 +130,7 @@ src/
     ui/                   图标、徽章、分页、空状态、弹窗、抽屉、Toast
   views/
     LoginView.vue
-    admin/            数据总览、素材管理、素材详情、素材入库、任务管理、任务详情、下载记录、操作日志、账号管理
+    admin/            数据总览、素材管理、素材详情、素材入库、任务管理、任务详情、下载记录、操作日志、员工账号、账号管理
   utils/format.ts
 scripts/
   contract-check.mjs  前后端契约静态检查（读 docs/openapi.json 对账）

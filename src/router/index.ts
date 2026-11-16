@@ -71,6 +71,12 @@ const router = createRouter({
           meta: { title: '操作日志', role: 'ADMIN', wide: true },
         },
         {
+          path: 'admin/employees',
+          name: 'admin-employees',
+          component: () => import('../views/admin/AdminEmployeesView.vue'),
+          meta: { title: '员工账号', role: 'ADMIN', wide: true },
+        },
+        {
           path: 'admin/accounts',
           name: 'admin-accounts',
           component: () => import('../views/admin/AdminAccountsView.vue'),

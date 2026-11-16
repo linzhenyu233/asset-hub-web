@@ -12,6 +12,7 @@ import type {
   Dashboard,
   DownloadLog,
   DownloadResult,
+  EmployeeAccount,
   Login,
   Operation,
   OperationPage,
@@ -351,6 +352,48 @@ const mockAccounts: AdminAccount[] = [
   },
 ]
 
+/* ---------------- 员工账号 ---------------- */
+
+/** 已建档员工演示数据：故意包含未登记姓名/工号/手机号、从未登录、待改密等边界情况 */
+const mockEmployees: EmployeeAccount[] = [
+  {
+    id: '1',
+    employeeId: '300465',
+    displayName: '陈晓雯',
+    phone: '13711112222',
+    status: 'ACTIVE',
+    mustChangePassword: false,
+    lastLoginAt: '2026-10-19 09:20:00',
+  },
+  {
+    id: '2',
+    employeeId: '300512',
+    displayName: '李文静',
+    phone: '13800138000',
+    status: 'ACTIVE',
+    mustChangePassword: true,
+    lastLoginAt: '2026-10-18 15:05:00',
+  },
+  {
+    id: '3',
+    employeeId: '300778',
+    displayName: '王海涛',
+    phone: '13566668888',
+    status: 'DISABLED',
+    mustChangePassword: false,
+    lastLoginAt: '2026-09-30 11:40:00',
+  },
+  {
+    id: '4',
+    employeeId: null,
+    displayName: '张敏',
+    phone: null,
+    status: 'ACTIVE',
+    mustChangePassword: true,
+    lastLoginAt: null,
+  },
+]
+
 /* ---------------- 工具 ---------------- */
 
 function paginate<T>(list: T[], page: number, pageSize: number) {
@@ -664,6 +707,36 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
         if (!account) throw new Error('账号不存在')
         account.status = str(body.status) === 'DISABLED' ? 'DISABLED' : ('ACTIVE' as AdminAccountStatus)
         return account as unknown as T
+      }
+    }
+
+    if (section === 'employees') {
+      if (segments.length === 2 && method === 'GET') {
+        // 真实后端 keyword 还能匹配门店，演示数据没有门店字段，只按工号/姓名/手机号匹配
+        const status = str(query.status)
+        let list = [...mockEmployees]
+        if (keyword) {
+          list = list.filter((item) =>
+            [item.displayName, item.employeeId, item.phone].some(
+              (value) => Boolean(value) && includesKeyword(value as string, keyword),
+            ),
+          )
+        }
+        if (status) list = list.filter((item) => item.status === status)
+        return paginate(list, page, pageSize) as unknown as T
+      }
+
+      if (segments.length === 3 && method === 'GET') {
+        const employee = mockEmployees.find((item) => item.id === segments[2])
+        if (!employee) throw new Error('员工不存在')
+        return employee as unknown as T
+      }
+
+      if (segments.length === 4 && segments[3] === 'status' && method === 'PUT') {
+        const employee = mockEmployees.find((item) => item.id === segments[2])
+        if (!employee) throw new Error('员工不存在')
+        employee.status = str(body.status) === 'DISABLED' ? 'DISABLED' : 'ACTIVE'
+        return employee as unknown as T
       }
     }
 

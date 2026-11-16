@@ -25,6 +25,11 @@ import type {
   DownloadResult,
   DownloadLogFilters,
   DownloadLogPage,
+  EmployeeAccount,
+  EmployeeAccountFilters,
+  EmployeeAccountPage,
+  EmployeeAccountStatus,
+  EmployeeAccountStatusInput,
   Login,
   OperationLogFilters,
   OperationPage,
@@ -64,6 +69,29 @@ export const accountApi = {
     request<AdminAccount>(`/admin/accounts/${id}/status`, {
       method: 'PUT',
       body: { status } satisfies AdminAccountStatusInput,
+    }),
+}
+
+/* ---------------- 员工账号（v2.12.0，管理员可查询与启停） ---------------- */
+export const employeeApi = {
+  /** 分页查询已建档员工，keyword 匹配工号 / 姓名 / 手机号 / 门店 */
+  list: (filters: EmployeeAccountFilters = {}) =>
+    request<EmployeeAccountPage>('/admin/employees', {
+      query: {
+        page: filters.page ?? 1,
+        pageSize: filters.pageSize ?? 20,
+        keyword: filters.keyword?.trim() || undefined,
+        status: filters.status || undefined,
+      },
+    }),
+
+  detail: (id: string) => request<EmployeeAccount>(`/admin/employees/${id}`),
+
+  /** 启用或停用：停用后该员工的登录态与未过期票据立即失效 */
+  setStatus: (id: string, status: EmployeeAccountStatus) =>
+    request<EmployeeAccount>(`/admin/employees/${id}/status`, {
+      method: 'PUT',
+      body: { status } satisfies EmployeeAccountStatusInput,
     }),
 }
 

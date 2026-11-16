@@ -33,6 +33,7 @@ const adminNav: NavItem[] = [
   { to: '/admin/tasks', label: '任务管理', icon: 'clipboard' },
   { to: '/admin/download-logs', label: '下载记录', icon: 'download' },
   { to: '/admin/operation-logs', label: '操作日志', icon: 'list' },
+  { to: '/admin/employees', label: '员工账号', icon: 'user' },
   { to: '/admin/accounts', label: '账号管理', icon: 'users', superAdminOnly: true },
 ]
 
