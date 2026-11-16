@@ -54,7 +54,7 @@ const displayName = computed(
 
 const initial = computed(() => displayName.value.trim().charAt(0).toUpperCase() || 'U')
 
-const roleLabel = '总部 · 管理员'
+const roleLabel = '总部 · 钻石世家'
 const pageTitle = computed(() => (route.meta.title as string) || '素材中心')
 
 // 列表/表格类页面放宽内容宽度，阅读型页面仍用设计令牌的 1200px

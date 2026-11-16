@@ -38,8 +38,7 @@ const rows = computed(() => {
   return [
     { label: '登录账号', value: u?.username || '—', mono: true },
     { label: '手机号', value: u?.phone || '—', mono: false },
-    { label: '所属门店', value: u?.storeName || (u?.isSuperAdmin ? '总部' : '—'), mono: false },
-    { label: '用户 ID', value: u ? `#${u.id}` : '—', mono: true },
+    { label: '所属门店', value: u?.storeName || (u?.isSuperAdmin ? '钻石世家' : '—'), mono: false },
   ]
 })
 
