@@ -23,6 +23,31 @@ export const ACTION_LABEL: Record<string, string> = {
   ACCOUNT_STATUS: '启停子账号',
 }
 
+/**
+ * 状态码 → 中文口径（素材 / 任务 / 上传会话 / 账号共用一套）：
+ * 徽章展示与操作日志的「操作前 / 操作后」都从这里取，避免两处各写一份。
+ */
+export const STATUS_LABEL: Record<string, string> = {
+  DRAFT: '草稿',
+  PUBLISHED: '已上架',
+  OFFLINE: '已下架',
+  CLAIMABLE: '待领取',
+  CLAIMED: '已领取',
+  FAILED: '失败',
+  SUCCESS: '成功',
+  COMMITTED: '已完成',
+  FILE_READY: '文件就绪',
+  INIT: '待上传',
+  UPLOADING: '上传中',
+  ACTIVE: '已启用',
+  DISABLED: '已停用',
+}
+
+/** 认不出的状态原样返回（例如后端新增了枚举），不要吞掉信息 */
+export function statusLabel(value: string): string {
+  return STATUS_LABEL[value] ?? value
+}
+
 export function assetTypeLabel(value: string): string {
   return ASSET_TYPE_LABEL[value] ?? value
 }

@@ -2,7 +2,7 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { logApi } from '../../api'
 import type { Operation } from '../../api/types'
-import { actionLabel, formatDateTime, nextDayStart, targetTypeLabel } from '../../utils/format'
+import { actionLabel, formatDateTime, nextDayStart, statusLabel, targetTypeLabel } from '../../utils/format'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import BaseDrawer from '../../components/ui/BaseDrawer.vue'
 import BaseIcon from '../../components/ui/BaseIcon.vue'
@@ -277,12 +277,12 @@ onMounted(load)
           <div class="mt-3 flex items-center gap-3">
             <div class="flex-1 rounded-control border border-neutral-200 px-3 py-2">
               <p class="text-micro text-neutral-500">操作前</p>
-              <p class="text-caption text-neutral-900">{{ selected.beforeState || '—' }}</p>
+              <p class="text-caption text-neutral-900">{{ statusLabel(selected.beforeState) || '—' }}</p>
             </div>
             <BaseIcon name="arrow-right" :size="16" class="text-neutral-400" />
             <div class="flex-1 rounded-control border border-neutral-200 px-3 py-2">
               <p class="text-micro text-neutral-500">操作后</p>
-              <p class="text-caption text-neutral-900">{{ selected.afterState || '—' }}</p>
+              <p class="text-caption text-neutral-900">{{ statusLabel(selected.afterState) || '—' }}</p>
             </div>
           </div>
         </div>
