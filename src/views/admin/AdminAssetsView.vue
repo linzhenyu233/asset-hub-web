@@ -6,6 +6,7 @@ import { ApiError } from '../../api/client'
 import type { AdminAsset, BatchDeleteFailure, BatchDeleteResult, Category } from '../../api/types'
 import { useBatchPreviews } from '../../composables/useBatchPreviews'
 import { useToast } from '../../composables/useToast'
+import { canPublish, THUMB_AUTO_MAX_BYTES } from '../../utils/asset'
 import { assetTypeLabel, categoryLabel, formatBytes, formatDateTime } from '../../utils/format'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import BaseIcon from '../../components/ui/BaseIcon.vue'
@@ -53,13 +54,7 @@ const {
   showPlaceholder,
 } = useBatchPreviews()
 
-/**
- * 视频和超过 3MB 的图片不自动拉缩略图：后端预览接口返回原图，
- * 5MB 的视频为了 40px 缩略图要传好几秒。这类行改为鼠标悬停时单独请求，
- * 其余图片照常自动加载（逐张淡入，不阻塞页面）。
- */
-const THUMB_AUTO_MAX_BYTES = 3_000_000
-
+/** 视频和超大图改为鼠标悬停时单独申请缩略图，其余图片照常自动加载（逐张淡入，不阻塞页面） */
 function needsDeferredThumb(asset: AdminAsset): boolean {
   return asset.assetType === 'VIDEO' || asset.fileSize > THUMB_AUTO_MAX_BYTES
 }
@@ -169,15 +164,6 @@ const batch = reactive({
 const selectedAssets = computed(() =>
   items.value.filter((item) => selectedIds.value.includes(item.id)),
 )
-/**
- * 只有活动包（CAMPAIGN）必须走任务发布流程；ZIP 素材包与普通素材一样可独立上架，
- * 子素材随父包状态生效。
- */
-function canPublish(asset: AdminAsset): boolean {
-  if (asset.status === 'PUBLISHED') return false
-  return !(asset.assetType === 'ARCHIVE' && asset.categoryCode === 'CAMPAIGN' && !asset.taskId)
-}
-
 /** 批量上架只作用于未上架且可独立上架的素材，批量下架只作用于已上架 */
 const publishableIds = computed(() =>
   selectedAssets.value.filter((item) => canPublish(item)).map((item) => item.id),
@@ -276,30 +262,28 @@ function closeBatch() {
   }
 }
 
-let keywordTimer: number | undefined
+let filterTimer: number | undefined
+let loadSeq = 0
 
-watch(
-  () => [filters.categoryCode, filters.assetType, filters.status],
-  () => {
-    page.value = 1
-    load()
-  },
-)
+/** 筛选一变就回第 1 页重查：已在第 1 页才直接查，否则交给 page 的 watcher，避免同一组参数发两次 */
+function restart() {
+  if (page.value === 1) load()
+  else page.value = 1
+}
 
+// 一个 watcher 覆盖全部筛选：关键词逐字输入需要防抖，下拉选择跟着同一条路走，380ms 无感
 watch(
-  () => filters.keyword,
+  () => [filters.keyword, filters.categoryCode, filters.assetType, filters.status],
   () => {
-    window.clearTimeout(keywordTimer)
-    keywordTimer = window.setTimeout(() => {
-      page.value = 1
-      load()
-    }, 380)
+    window.clearTimeout(filterTimer)
+    filterTimer = window.setTimeout(restart, 380)
   },
 )
 
 watch(page, () => load())
 
 async function load() {
+  const current = ++loadSeq
   loading.value = true
   errorMessage.value = ''
   selectedIds.value = []
@@ -312,17 +296,19 @@ async function load() {
       assetType: filters.assetType || undefined,
       status: filters.status || undefined,
     })
+    if (current !== loadSeq) return
     items.value = res.items
     total.value = res.total
     // v2.11.0 的预览接口直接返回 240px 缩略图，几 KB 一张，整页可以放心自动加载
     loadThumbs(res.items)
   } catch (error) {
+    if (current !== loadSeq) return
     items.value = []
     total.value = 0
     resetThumbs()
     errorMessage.value = error instanceof Error ? error.message : '素材加载失败'
   } finally {
-    loading.value = false
+    if (current === loadSeq) loading.value = false
   }
 }
 
@@ -364,13 +350,12 @@ async function submitConfirm() {
   }
 }
 
+/** 清空筛选：上面的 watcher 会回第 1 页并重查，这里不再自己发请求 */
 function resetFilters() {
   filters.keyword = ''
   filters.categoryCode = ''
   filters.assetType = ''
   filters.status = ''
-  page.value = 1
-  load()
 }
 
 onMounted(() => {

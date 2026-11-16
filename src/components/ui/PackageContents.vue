@@ -6,6 +6,7 @@ import { makeRequestId } from '../../composables/useUpload'
 import { useBatchPreviews } from '../../composables/useBatchPreviews'
 import { useToast } from '../../composables/useToast'
 import type { Asset } from '../../api/types'
+import { THUMB_AUTO_MAX_BYTES } from '../../utils/asset'
 import { assetTypeLabel, formatBytes } from '../../utils/format'
 import AssetPreviewModal from './AssetPreviewModal.vue'
 import BaseIcon from './BaseIcon.vue'
@@ -47,9 +48,6 @@ const {
   isLoaded,
   showPlaceholder,
 } = useBatchPreviews()
-
-/** 视频和超过 3MB 的图片不自动拉缩略图（预览接口给的是原图），悬停时再取 */
-const THUMB_AUTO_MAX_BYTES = 3_000_000
 
 function ensureThumb(child: Asset) {
   if (thumbs.value[child.id]) return

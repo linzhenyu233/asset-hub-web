@@ -8,7 +8,6 @@ import type {
   AssetResult,
   Category,
   Claim,
-  ClaimResult,
   Dashboard,
   DownloadLog,
   DownloadResult,
@@ -20,7 +19,6 @@ import type {
   Session,
   Task,
   TaskDetail,
-  TaskPage,
   TaskResult,
   User,
 } from '../api/types'
@@ -866,49 +864,6 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
     }
   }
 
-  /* ---------- 员工任务 ---------- */
-  if (segments[0] === 'tasks') {
-    if (segments.length === 1 && method === 'GET') {
-      const claimStatus = str(query.claimStatus)
-      let list = [...tasks]
-      if (claimStatus === 'CLAIMED') list = list.filter((item) => item.claimed)
-      if (claimStatus === 'CLAIMABLE') list = list.filter((item) => !item.claimed)
-      if (keyword) list = list.filter((item) => includesKeyword(item.title, keyword))
-      const pageResult: TaskPage = paginate(list, page, pageSize)
-      return pageResult as unknown as T
-    }
-
-    const index = tasks.findIndex((item) => item.id === segments[1])
-    if (index < 0) throw new Error('任务不存在')
-
-    if (segments.length === 2 && method === 'GET') {
-      return toDetail(index) as unknown as T
-    }
-
-    if (segments.length === 3 && segments[2] === 'claim' && method === 'POST') {
-      const task = tasks[index]
-      if (!task.claimed) {
-        task.claimed = true
-        task.claimedAt = NOW
-        task.claimCount += 1
-        claims.unshift({
-          taskId: task.id,
-          userId: mockEmployeeUser.id,
-          displayName: mockEmployeeUser.displayName,
-          phone: mockEmployeeUser.phone,
-          storeName: mockEmployeeUser.storeName,
-          claimedAt: NOW,
-        })
-      }
-      const result: ClaimResult = {
-        claimed: true,
-        claimedAt: task.claimedAt ?? NOW,
-        completed: true,
-        taskId: task.id,
-      }
-      return result as unknown as T
-    }
-  }
-
+  // 员工端接口（领取任务等）不在本项目范围内，已删除
   throw new Error(`预览模式未实现该接口：${method} ${path}`)
 }

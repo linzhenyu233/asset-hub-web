@@ -16,7 +16,8 @@ export default defineConfig(({ mode }) => {
       // 5273 为本项目专用端口：5173 常被同机其他 Vite 项目占用，
       // 被占用时 Vite 会静默换端口，导致代理/联调打到别的服务上。
       port: 5273,
-      strictPort: false,
+      // 端口必须固定：被占用时直接报错，而不是静默换到 5274 让联调打到别处
+      strictPort: true,
       host: true,
       proxy: {
         '/api': {

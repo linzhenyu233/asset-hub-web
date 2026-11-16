@@ -88,7 +88,8 @@ export function formatDateTime(value?: string | null): string {
  */
 export function nextDayStart(date: string): string {
   const [year, month, day] = date.split('-').map(Number)
-  if (!year || !month || !day) return date
+  // 认不出的日期返回空串：调用方会跳过该参数，比把畸形值发给后端（400 无提示）好
+  if (!year || !month || !day) return ''
   const next = new Date(Date.UTC(year, month - 1, day + 1))
   const y = next.getUTCFullYear()
   const m = String(next.getUTCMonth() + 1).padStart(2, '0')

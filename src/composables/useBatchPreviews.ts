@@ -1,6 +1,10 @@
 import { ref } from 'vue'
 import { adminAssetApi } from '../api'
 import { resolveFileUrl } from '../api/client'
+import type { BatchPreviewItem } from '../api/types'
+
+/** 后端批量预览一次最多 100 个素材，超出要分批申请 */
+const PREVIEW_BATCH_LIMIT = 100
 
 export interface ThumbAsset {
   id: string
@@ -145,6 +149,9 @@ export function useBatchPreviews() {
     failures.value = pickRecord(failures.value, keep)
     frames.value = pickRecord(frames.value, keep)
     loaded.value = pickRecord(loaded.value, keep)
+    for (const id of [...coverCache.keys()]) {
+      if (!keep.has(id)) coverCache.delete(id)
+    }
   }
 
   async function load(assets: ThumbAsset[], options: LoadThumbsOptions = {}): Promise<void> {
@@ -203,14 +210,18 @@ export function useBatchPreviews() {
 
     try {
       const requestIds = Array.from(new Set(targets.map((asset) => asset.id)))
-      const res = await adminAssetApi.previews(requestIds)
-      if (current !== seq) return
+      const items: BatchPreviewItem[] = []
+      for (let index = 0; index < requestIds.length; index += PREVIEW_BATCH_LIMIT) {
+        const res = await adminAssetApi.previews(requestIds.slice(index, index + PREVIEW_BATCH_LIMIT))
+        if (current !== seq) return
+        items.push(...res.items)
+      }
 
       const urlOf: Record<string, string> = {}
       const thumbOf: Record<string, string> = {}
       const mimeOf: Record<string, string> = {}
       const errorOf: Record<string, string> = {}
-      for (const item of res.items) {
+      for (const item of items) {
         if ('url' in item) {
           urlOf[item.assetId] = resolveFileUrl(item.url)
           // v2.11.0：240px 缩略图（图片缩略图 / 视频首帧），几 KB，优先用它
@@ -268,7 +279,8 @@ export function useBatchPreviews() {
 
   /** 单条按需加载：大文件与视频在鼠标悬停时才请求，不拖慢整页 */
   async function loadOne(asset: ThumbAsset): Promise<void> {
-    if (thumbs.value[asset.id] || inflight.has(asset.id)) return
+    // 已失败的不再重试：悬停每划过一次就重发一次请求，坏素材会被反复打
+    if (thumbs.value[asset.id] || inflight.has(asset.id) || failures.value[asset.id]) return
     inflight.add(asset.id)
     try {
       const res = await adminAssetApi.preview(asset.id)

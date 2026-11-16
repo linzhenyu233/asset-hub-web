@@ -6,6 +6,7 @@ import { ApiError } from '../../api/client'
 import type { Asset, Claim, TaskDetail } from '../../api/types'
 import { useBatchPreviews } from '../../composables/useBatchPreviews'
 import { useToast } from '../../composables/useToast'
+import { THUMB_AUTO_MAX_BYTES } from '../../utils/asset'
 import {
   assetTypeLabel,
   formatBytes,
@@ -55,9 +56,6 @@ const {
   showPlaceholder,
 } = useBatchPreviews()
 
-/** 视频与超大图不自动加载（预览接口给的是原图），悬停时再取 */
-const THUMB_AUTO_MAX_BYTES = 3_000_000
-
 /** 右栏展示的前 4 个包内素材 */
 const childSamples = computed(() => (task.value?.activityAsset.children ?? []).slice(0, 4))
 const extraChildren = computed(() => Math.max(0, childCount.value - childSamples.value.length))
@@ -97,13 +95,17 @@ async function saveDeadline(value: string | null) {
 }
 
 let keywordTimer: number | undefined
+let claimSeq = 0
+
+/** 关键词一变就回第 1 页重查：已在第 1 页才直接查，否则交给 claimPage 的 watcher，避免同一组参数发两次 */
+function restartClaims() {
+  if (claimPage.value === 1) loadClaims()
+  else claimPage.value = 1
+}
 
 watch(claimKeyword, () => {
   window.clearTimeout(keywordTimer)
-  keywordTimer = window.setTimeout(() => {
-    claimPage.value = 1
-    loadClaims()
-  }, 380)
+  keywordTimer = window.setTimeout(restartClaims, 380)
 })
 
 watch(claimPage, () => loadClaims())
@@ -131,6 +133,7 @@ async function loadTask() {
 }
 
 async function loadClaims() {
+  const current = ++claimSeq
   claimLoading.value = true
   claimError.value = ''
   try {
@@ -139,14 +142,16 @@ async function loadClaims() {
       pageSize: claimPageSize.value,
       keyword: claimKeyword.value.trim() || undefined,
     })
+    if (current !== claimSeq) return
     claims.value = res.items
     claimTotal.value = res.total
   } catch (error) {
+    if (current !== claimSeq) return
     claims.value = []
     claimTotal.value = 0
     claimError.value = error instanceof Error ? error.message : '领取明细加载失败'
   } finally {
-    claimLoading.value = false
+    if (current === claimSeq) claimLoading.value = false
   }
 }
 

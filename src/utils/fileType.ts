@@ -133,7 +133,8 @@ export async function inspectFile(file: File, fallback: string): Promise<FileTyp
   }
 
   const declared = file.type || ''
-  const mimeType = actual ?? declared ?? fallback
+  // 浏览器给不出类型时 declared 是空串，?? 不会兜底（'' 不是 null），用 || 才会落到 fallback
+  const mimeType = actual ?? (declared || fallback)
   return {
     declared,
     actual,

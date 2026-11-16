@@ -549,7 +549,12 @@ async function submitMaterial() {
   submitting.value = false
 
   if (failedKeys.length > 0) {
-    files.value = files.value.filter((item) => failedKeys.includes(item.key))
+    // 只留失败项继续重试，已成功项的本地预览地址要释放，否则每批都在漏 blob
+    const failed = files.value.filter((item) => failedKeys.includes(item.key))
+    files.value.forEach((item) => {
+      if (!failedKeys.includes(item.key)) releasePreview(item)
+    })
+    files.value = failed
     errorMessage.value = `${done} 个素材已入库，${failedKeys.length} 个失败（原因见对应文件行），修正后可直接重试`
     noticeMessage.value =
       publishFailed.length > 0
@@ -560,7 +565,7 @@ async function submitMaterial() {
   }
 
   // 成功后留在本页：清空已入库的清单，方便接着选下一批
-  files.value = []
+  clearFiles()
   resultLink.value = { label: '查看素材库', to: '/admin/assets' }
   if (publishAfterUpload.value) {
     resultMessage.value =
@@ -607,7 +612,7 @@ async function submitTask() {
     file.percent = 100
     success('任务已发布')
     // 与素材入库一致：留在本页，清空表单方便接着发布下一个活动包
-    files.value = []
+    clearFiles()
     task.title = ''
     task.content = ''
     task.deadlineAt = ''

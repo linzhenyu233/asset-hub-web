@@ -22,18 +22,23 @@ const keyword = ref('')
 const hasFilter = computed(() => Boolean(keyword.value))
 
 let keywordTimer: number | undefined
+let loadSeq = 0
+
+/** 关键词一变就回第 1 页重查：已在第 1 页才直接查，否则交给 page 的 watcher，避免同一组参数发两次 */
+function restart() {
+  if (page.value === 1) load()
+  else page.value = 1
+}
 
 watch(keyword, () => {
   window.clearTimeout(keywordTimer)
-  keywordTimer = window.setTimeout(() => {
-    page.value = 1
-    load()
-  }, 380)
+  keywordTimer = window.setTimeout(restart, 380)
 })
 
 watch(page, () => load())
 
 async function load() {
+  const current = ++loadSeq
   loading.value = true
   errorMessage.value = ''
   try {
@@ -42,14 +47,16 @@ async function load() {
       pageSize: pageSize.value,
       keyword: keyword.value.trim() || undefined,
     })
+    if (current !== loadSeq) return
     items.value = res.items
     total.value = res.total
   } catch (error) {
+    if (current !== loadSeq) return
     items.value = []
     total.value = 0
     errorMessage.value = error instanceof Error ? error.message : '任务加载失败'
   } finally {
-    loading.value = false
+    if (current === loadSeq) loading.value = false
   }
 }
 

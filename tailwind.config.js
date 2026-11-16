@@ -1,5 +1,5 @@
 /** @type {import('tailwindcss').Config} */
-// 主题严格取自 tokens.json（Ardot file 734820516311557 导出）
+// 主题取自 Ardot file 734820516311557 导出的 tokens.json（该文件不进仓库，值已落在这里）
 export default {
   content: ['./index.html', './src/**/*.{vue,ts,tsx}'],
   theme: {

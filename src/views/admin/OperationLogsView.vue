@@ -37,6 +37,16 @@ const hasFilter = computed(() =>
   ),
 )
 
+let filterTimer: number | undefined
+let loadSeq = 0
+
+/** 筛选一变就回第 1 页重查：已在第 1 页才直接查，否则交给 page 的 watcher，避免同一组参数发两次 */
+function restart() {
+  if (page.value === 1) load()
+  else page.value = 1
+}
+
+// 一个 watcher 覆盖全部筛选（操作人 ID 逐字输入要防抖，下拉与日期跟着同一条路走）
 watch(
   () => [
     filters.operatorId,
@@ -47,14 +57,15 @@ watch(
     filters.to,
   ],
   () => {
-    page.value = 1
-    load()
+    window.clearTimeout(filterTimer)
+    filterTimer = window.setTimeout(restart, 380)
   },
 )
 
 watch(page, () => load())
 
 async function load() {
+  const current = ++loadSeq
   loading.value = true
   errorMessage.value = ''
   try {
@@ -69,17 +80,20 @@ async function load() {
       // 后端 to 为开区间（< to），传次日 00:00:00 才能包含当天全天
       to: filters.to ? nextDayStart(filters.to) : undefined,
     })
+    if (current !== loadSeq) return
     items.value = res.items
     total.value = res.total
   } catch (error) {
+    if (current !== loadSeq) return
     items.value = []
     total.value = 0
     errorMessage.value = error instanceof Error ? error.message : '操作日志加载失败'
   } finally {
-    loading.value = false
+    if (current === loadSeq) loading.value = false
   }
 }
 
+/** 清空筛选：上面的 watcher 会回第 1 页并重查，这里不再自己发请求 */
 function resetFilters() {
   filters.operatorId = ''
   filters.action = ''
@@ -87,8 +101,6 @@ function resetFilters() {
   filters.result = ''
   filters.from = ''
   filters.to = ''
-  page.value = 1
-  load()
 }
 
 onMounted(load)
@@ -120,6 +132,7 @@ onMounted(load)
             <option value="OFFLINE">下架</option>
             <option value="DELETE">删除素材</option>
             <option value="TASK_PUBLISH">发布任务</option>
+            <option value="TASK_DEADLINE">修改截止时间</option>
             <option value="ACCOUNT_CREATE">新建子账号</option>
             <option value="ACCOUNT_STATUS">启停子账号</option>
           </select>

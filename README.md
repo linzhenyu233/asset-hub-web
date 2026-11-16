@@ -4,7 +4,7 @@
 只负责页面与接口调用，**不含后端实现**。以总部管理端为主，并提供「员工视角」预览页（`/assets/:id`）。
 
 - 接口规范：`docs/openapi.json`（v2.12.0，来源 `https://dssczt.shininghouse.vip/go/sczt/v1/api-docs`）
-- 设计令牌：严格取自 `tokens.json`（Ardot 文件 734820516311557 导出），并遵循 `DESIGN.md` / `COMPONENTS.md`
+- 设计令牌：源自 Ardot 文件 734820516311557 导出的 `tokens.json`，已落到 `tailwind.config.js`（颜色/间距/阴影）与 `src/style.css`（组件类）；`tokens.json` 与设计说明文档不在本仓库
 
 ## 当前状态：预览模式（开发环境默认开启）
 

@@ -15,7 +15,6 @@ const { state, isSuperAdmin, mustChangePassword, isPreview, logout, markPassword
 
 const collapsed = ref(false)
 const mobileOpen = ref(false)
-const passwordOpen = ref(false)
 const accountOpen = ref(false)
 
 interface NavItem {
@@ -38,8 +37,6 @@ const adminNav: NavItem[] = [
 ]
 
 const nav = computed(() => adminNav.filter((item) => !item.superAdminOnly || isSuperAdmin.value))
-
-const passwordModalOpen = computed(() => passwordOpen.value || mustChangePassword.value)
 
 // 后端用 403 PASSWORD_CHANGE_REQUIRED 拒绝业务接口时，立刻弹强制改密
 function onPasswordRequired() {
@@ -258,11 +255,7 @@ watch(
 
     <AccountDrawer :open="accountOpen" @close="accountOpen = false" />
 
-    <ChangePasswordModal
-      :open="passwordModalOpen"
-      :forced="mustChangePassword"
-      @close="passwordOpen = false"
-      @success="passwordOpen = false"
-    />
+    <!-- 这里只负责首次强制改密；主动改密在账号抽屉里 -->
+    <ChangePasswordModal :open="mustChangePassword" forced />
   </div>
 </template>

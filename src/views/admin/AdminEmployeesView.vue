@@ -40,6 +40,7 @@ function initialOf(item: EmployeeAccount): string {
 }
 
 async function load() {
+  const current = ++loadSeq
   loading.value = true
   errorMessage.value = ''
   forbidden.value = false
@@ -50,6 +51,7 @@ async function load() {
       keyword: keyword.value,
       status: status.value,
     })
+    if (current !== loadSeq) return
     items.value = res.items
     total.value = res.total
     // 停用掉最后一页的最后一个人后当前页会变空，自动回退到最后一个有效页
@@ -57,37 +59,40 @@ async function load() {
       page.value = Math.max(1, Math.ceil(res.total / PAGE_SIZE))
     }
   } catch (error) {
+    if (current !== loadSeq) return
     items.value = []
     total.value = 0
     if (error instanceof ApiError && error.status === 403) forbidden.value = true
     else errorMessage.value = error instanceof Error ? error.message : '员工列表加载失败'
   } finally {
-    loading.value = false
+    if (current === loadSeq) loading.value = false
   }
 }
 
-let keywordTimer: number | undefined
+let filterTimer: number | undefined
+let loadSeq = 0
 
-watch(keyword, () => {
-  window.clearTimeout(keywordTimer)
-  keywordTimer = window.setTimeout(() => {
-    page.value = 1
-    load()
-  }, 380)
-})
+/** 筛选一变就回第 1 页重查：已在第 1 页才直接查，否则交给 page 的 watcher，避免同一组参数发两次 */
+function restart() {
+  if (page.value === 1) load()
+  else page.value = 1
+}
 
-watch(status, () => {
-  page.value = 1
-  load()
-})
+// 一个 watcher 覆盖两个筛选（关键词防抖，状态下拉跟着同一条路走，380ms 无感）
+watch(
+  () => [keyword.value, status.value],
+  () => {
+    window.clearTimeout(filterTimer)
+    filterTimer = window.setTimeout(restart, 380)
+  },
+)
 
 watch(page, () => load())
 
+/** 清空筛选：上面的 watcher 会回第 1 页并重查，这里不再自己发请求 */
 function resetFilters() {
   keyword.value = ''
   status.value = ''
-  page.value = 1
-  load()
 }
 
 /* ---------------- 启用 / 停用 ---------------- */

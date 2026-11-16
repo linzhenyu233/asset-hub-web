@@ -93,6 +93,18 @@ const categoryStats = computed<CategoryStat[]>(() => {
 
 const grandTotal = computed(() => categoryStats.value.reduce((sum, item) => sum + item.total, 0))
 
+/**
+ * 分类行 + 三段状态条宽度。各段独立四舍五入会出现 99%/101%（如 50.5% 与 49.5% 都进位），
+ * 所以只给前两段取整、第三段吃掉余数，条子才不会空一格或被挤压。
+ */
+const categoryRows = computed(() =>
+  categoryStats.value.map((item) => {
+    const published = percent(item.published, item.total)
+    const offline = Math.min(percent(item.offline, item.total), 100 - published)
+    return { ...item, widths: [published, offline, Math.max(0, 100 - published - offline)] }
+  }),
+)
+
 function percent(value: number, total: number): number {
   if (!total) return 0
   return Math.max(0, Math.round((value / total) * 100))
@@ -269,7 +281,7 @@ onMounted(() => {
           </div>
 
           <div v-else class="mt-5 space-y-5">
-            <div v-for="item in categoryStats" :key="item.code">
+            <div v-for="item in categoryRows" :key="item.code">
               <div class="flex items-center justify-between gap-3">
                 <div class="flex items-center gap-2">
                   <span class="text-body font-medium text-neutral-900">{{ item.label }}</span>
@@ -280,9 +292,9 @@ onMounted(() => {
                 </span>
               </div>
               <div class="mt-2 h-2 rounded-pill bg-neutral-100 overflow-hidden flex">
-                <div class="h-full bg-brand-500" :style="{ width: `${percent(item.published, item.total)}%` }" />
-                <div class="h-full bg-neutral-300" :style="{ width: `${percent(item.offline, item.total)}%` }" />
-                <div class="h-full bg-neutral-200" :style="{ width: `${percent(item.draft, item.total)}%` }" />
+                <div class="h-full bg-brand-500" :style="{ width: `${item.widths[0]}%` }" />
+                <div class="h-full bg-neutral-300" :style="{ width: `${item.widths[1]}%` }" />
+                <div class="h-full bg-neutral-200" :style="{ width: `${item.widths[2]}%` }" />
               </div>
               <div class="mt-1.5 flex items-center gap-4 text-micro text-neutral-500">
                 <span>已上架 {{ item.published }}</span>

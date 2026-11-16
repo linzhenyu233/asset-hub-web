@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { onBeforeUnmount, watch } from 'vue'
+import { nextTick, onBeforeUnmount, ref, watch } from 'vue'
+import { closeOverlay, isTopOverlay, nextOverlayId, openOverlay, trapTab } from '../../utils/overlay'
 import BaseIcon from './BaseIcon.vue'
 
 const props = withDefaults(
@@ -17,19 +18,40 @@ const props = withDefaults(
 
 const emit = defineEmits<{ (e: 'close'): void }>()
 
+const overlayId = nextOverlayId()
+const titleId = `modal-title-${overlayId}`
+const dialogEl = ref<HTMLElement | null>(null)
+/** 关闭后把焦点还给打开它的按钮，键盘用户不会掉回页首 */
+let focusBack: HTMLElement | null = null
+
 function onKeydown(event: KeyboardEvent) {
+  if (!isTopOverlay(overlayId)) return
   if (event.key === 'Escape') emit('close')
+  else trapTab(event, dialogEl.value)
 }
 
 watch(
   () => props.open,
-  (open) => {
-    if (open) window.addEventListener('keydown', onKeydown)
-    else window.removeEventListener('keydown', onKeydown)
+  async (open) => {
+    if (open) {
+      openOverlay(overlayId)
+      window.addEventListener('keydown', onKeydown)
+      focusBack = document.activeElement instanceof HTMLElement ? document.activeElement : null
+      await nextTick()
+      dialogEl.value?.focus()
+      return
+    }
+    closeOverlay(overlayId)
+    window.removeEventListener('keydown', onKeydown)
+    focusBack?.focus()
+    focusBack = null
   },
 )
 
-onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
+onBeforeUnmount(() => {
+  window.removeEventListener('keydown', onKeydown)
+  closeOverlay(overlayId)
+})
 </script>
 
 <template>
@@ -46,15 +68,18 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
           @click="closeOnBackdrop && emit('close')"
         />
         <div
-          class="relative w-full bg-neutral-0 rounded-xl shadow-e3 p-6 animate-fade-up"
+          ref="dialogEl"
+          class="relative w-full bg-neutral-0 rounded-xl shadow-e3 p-6 animate-fade-up focus:outline-none"
           :style="{ maxWidth: `${width}px` }"
           role="dialog"
           aria-modal="true"
+          :aria-labelledby="titleId"
+          tabindex="-1"
           @click.stop
         >
           <div class="flex items-start justify-between gap-4">
             <div>
-              <h2 class="text-h3 font-bold text-neutral-900">{{ title }}</h2>
+              <h2 :id="titleId" class="text-h3 font-bold text-neutral-900">{{ title }}</h2>
               <p v-if="description" class="mt-1 text-[13px] leading-5 text-neutral-600">{{ description }}</p>
             </div>
             <button

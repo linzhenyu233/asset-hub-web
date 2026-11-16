@@ -6,6 +6,7 @@ import { ApiError, resolveFileUrl } from '../../api/client'
 import type { AdminAsset } from '../../api/types'
 import { useAssetPreview } from '../../composables/useAssetPreview'
 import { useToast } from '../../composables/useToast'
+import { canPublish } from '../../utils/asset'
 import { assetTypeLabel, categoryLabel, formatBytes, formatDateTime } from '../../utils/format'
 import BaseIcon from '../../components/ui/BaseIcon.vue'
 import BaseModal from '../../components/ui/BaseModal.vue'
@@ -59,13 +60,11 @@ const canUnpack = computed(
 const isCampaignPackage = computed(
   () => asset.value?.assetType === 'ARCHIVE' && asset.value.categoryCode === 'CAMPAIGN',
 )
-/**
- * 只有活动包必须通过任务发布流程上架；ZIP 素材包与普通素材一样可独立上架，
- * 子素材随父包状态生效（上架后可直接预览、下载，无需领取任务）。
- */
-const publishBlocked = computed(
-  () => isCampaignPackage.value && !asset.value?.taskId,
-)
+/** 上架被拦：只有「未关联任务的活动包」必须走任务发布流程（与素材列表页共用同一条规则） */
+const publishBlocked = computed(() => {
+  const current = asset.value
+  return current !== null && current.status !== 'PUBLISHED' && !canPublish(current)
+})
 
 async function unpack() {
   if (!asset.value || unpacking.value || !canUnpack.value) return
