@@ -159,7 +159,7 @@ onMounted(load)
 </script>
 
 <template>
-  <div class="animate-fade-up mx-auto max-w-[1600px]">
+  <div class="animate-fade-up">
     <div class="flex items-center justify-between gap-3 mb-5">
       <button type="button" class="btn btn-secondary btn-sm" @click="router.push('/admin/assets')">
         <BaseIcon name="arrow-left" :size="16" />
@@ -171,7 +171,7 @@ onMounted(load)
       </button>
     </div>
 
-    <div v-if="loading" class="grid gap-5 lg:grid-cols-[1fr_400px]">
+    <div v-if="loading" class="grid gap-5 lg:grid-cols-[1fr_400px] 3xl:grid-cols-[1fr_480px]">
       <div class="card overflow-hidden"><div class="skeleton aspect-[4/3] w-full rounded-none" /></div>
       <div class="card p-5 space-y-3">
         <div class="skeleton h-5 w-2/3" />
@@ -188,7 +188,7 @@ onMounted(load)
       </EmptyState>
     </div>
 
-    <div v-else class="grid gap-5 lg:grid-cols-[1fr_400px] items-start">
+    <div v-else class="grid gap-5 lg:grid-cols-[1fr_400px] 3xl:grid-cols-[1fr_480px] items-start">
       <section v-if="asset.assetType === 'ARCHIVE'" class="card p-5">
         <PackageContents
           :asset="asset"

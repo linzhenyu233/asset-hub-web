@@ -673,7 +673,10 @@ onMounted(() => {
       </button>
     </div>
 
-    <div class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px] items-start">
+    <div
+      class="grid gap-6 lg:grid-cols-[minmax(0,1fr)_340px] xl:grid-cols-[minmax(0,1fr)_380px]
+        3xl:grid-cols-[minmax(0,1fr)_420px] items-start"
+    >
       <!-- 表单 -->
       <form class="card p-6 sm:p-8" @submit.prevent="submit">
         <div v-if="errorMessage" role="alert" class="mb-4 flex items-start gap-2 rounded-control bg-feedback-danger-bg px-3.5 py-3 text-[13px] leading-[19px] text-feedback-on-danger">

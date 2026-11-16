@@ -113,8 +113,8 @@ onMounted(load)
       </div>
     </header>
 
-    <main class="max-w-content mx-auto px-4 sm:px-6 py-5">
-      <div v-if="loading" class="grid gap-5 lg:grid-cols-[1fr_360px]">
+    <main class="max-w-content mx-auto px-4 sm:px-6 py-5 2xl:max-w-[1400px] 2xl:px-10 3xl:max-w-[1600px]">
+      <div v-if="loading" class="grid gap-5 lg:grid-cols-[1fr_360px] 3xl:grid-cols-[1fr_420px]">
         <div class="card overflow-hidden"><div class="skeleton aspect-[4/3] w-full rounded-none" /></div>
         <div class="card p-5 space-y-3">
           <div class="skeleton h-5 w-2/3" />
@@ -145,7 +145,7 @@ onMounted(load)
           </p>
         </div>
 
-        <div class="grid gap-5 lg:grid-cols-[1fr_360px] items-start">
+        <div class="grid gap-5 lg:grid-cols-[1fr_360px] 3xl:grid-cols-[1fr_420px] items-start">
           <section v-if="asset.assetType === 'ARCHIVE'" class="card p-5">
             <PackageContents :asset="asset" />
             <p class="mt-4 pt-4 border-t border-neutral-100 text-micro text-neutral-500 leading-[16px]">

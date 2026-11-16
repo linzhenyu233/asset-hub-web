@@ -223,9 +223,17 @@ watch(
       </header>
 
       <main class="pt-topbar min-h-screen flex flex-col">
+        <!--
+          内容区宽度随视口分级：常规页 1200 → 1400 → 1600，列表/表格页 1600 → 1760 → 2000。
+          大屏（2K/4K）不再被 1200px 卡住导致页面看着很小。
+        -->
         <div
           class="flex-1 px-4 py-4 sm:py-5"
-          :class="isWide ? 'mx-auto w-full max-w-[1600px] sm:px-10' : 'max-w-content mx-auto sm:px-6'"
+          :class="
+            isWide
+              ? 'mx-auto w-full max-w-[1600px] sm:px-10 2xl:max-w-[1760px] 2xl:px-12 3xl:max-w-[2000px]'
+              : 'mx-auto w-full max-w-content sm:px-6 2xl:max-w-[1400px] 2xl:px-10 3xl:max-w-[1600px]'
+          "
         >
           <RouterView />
         </div>

@@ -236,7 +236,7 @@ async function download(child: Asset) {
     </div>
 
     <!-- 网格：素材详情主区域 -->
-    <div v-else class="mt-4 grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-4">
+    <div v-else class="mt-4 grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-4 2xl:grid-cols-5 3xl:grid-cols-6">
       <div
         v-for="child in children"
         :key="child.id"

@@ -637,8 +637,8 @@ onMounted(() => {
                     </span>
                   </div>
                   <div class="min-w-0">
-                    <p class="text-body font-medium text-neutral-900 truncate max-w-[260px]">{{ asset.name }}</p>
-                    <p class="text-micro text-neutral-400 truncate max-w-[260px]">
+                    <p class="text-body font-medium text-neutral-900 truncate max-w-[260px] 2xl:max-w-[360px] 3xl:max-w-[460px]">{{ asset.name }}</p>
+                    <p class="text-micro text-neutral-400 truncate max-w-[260px] 2xl:max-w-[360px] 3xl:max-w-[460px]">
                       #{{ asset.id }} · {{ asset.originalFilename }}
                     </p>
                   </div>

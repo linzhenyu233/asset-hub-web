@@ -187,7 +187,7 @@ onMounted(() => {
 </script>
 
 <template>
-  <div class="animate-fade-up mx-auto max-w-[1600px]">
+  <div class="animate-fade-up">
     <PageHeader
       title="数据总览"
       :subtitle="data ? `统计截止 ${formatDateTime(data.asOf)}（北京时间）` : '素材、任务与下载的全量汇总'"
@@ -240,7 +240,7 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="grid gap-5 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_380px] items-start">
+      <div class="grid gap-5 lg:grid-cols-[1fr_360px] xl:grid-cols-[1fr_380px] 3xl:grid-cols-[1fr_460px] items-start">
         <!-- 素材分布 -->
         <section class="card p-6">
           <div class="flex items-center justify-between gap-3">
