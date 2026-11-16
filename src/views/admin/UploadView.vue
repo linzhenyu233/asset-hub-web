@@ -58,6 +58,12 @@ const submitting = ref(false)
 const errorMessage = ref('')
 /** 上一批上传结果的提示（成功后留在本页继续上传） */
 const resultMessage = ref('')
+/**
+ * 入库后立即上架：创建草稿接口（POST /admin/assets）不接收状态，
+ * 只能是「先建草稿、再逐个调 publish」，这里统一编排，省去入库后再去素材库一个个点。
+ * 默认关闭：上架后门店立刻可见，属于对外动作，需要显式勾选。
+ */
+const publishAfterUpload = ref(false)
 /** 结果条右侧的去处（素材库 / 任务管理），随模式变化 */
 const resultLink = ref<{ label: string; to: string } | null>(null)
 /** 中性提示（例如自动忽略的文件夹条目） */
@@ -467,9 +473,13 @@ const canSubmit = computed(() => {
 })
 
 const submitLabel = computed(() => {
-  if (submitting.value) return mode.value === 'material' ? '入库中…' : '发布中…'
+  if (submitting.value) {
+    if (mode.value === 'task') return '发布中…'
+    return publishAfterUpload.value ? '上传并上架中…' : '入库中…'
+  }
   if (mode.value === 'task') return '上传并发布任务'
-  return files.value.length > 1 ? `上传并入库（${files.value.length}）` : '上传并入库'
+  const verb = publishAfterUpload.value ? '上架' : '入库'
+  return files.value.length > 1 ? `上传并${verb}（${files.value.length}）` : `上传并${verb}`
 })
 
 async function submitMaterial() {
@@ -479,6 +489,9 @@ async function submitMaterial() {
   const targets = [...files.value]
   submitting.value = true
   let done = 0
+  let published = 0
+  /** 已入库但上架失败的名字：不能进失败重试，否则会重复入库 */
+  const publishFailed: string[] = []
   const failedKeys: string[] = []
 
   // 重试前清掉上一次的失败标记
@@ -503,10 +516,19 @@ async function submitMaterial() {
           entry.percent = value
         },
       })
-      await adminAssetApi.create({
+      const created = await adminAssetApi.create({
         name: entry.name.trim(),
         uploadSessionId: session.id,
       })
+      if (publishAfterUpload.value) {
+        try {
+          await adminAssetApi.publish(created.assetId)
+          published += 1
+        } catch {
+          // 素材已入库，只是上架没成功：不计入失败重试，否则重试会重复入库
+          publishFailed.push(entry.name.trim())
+        }
+      }
       entry.status = 'done'
       entry.percent = 100
       done += 1
@@ -523,15 +545,27 @@ async function submitMaterial() {
   if (failedKeys.length > 0) {
     files.value = files.value.filter((item) => failedKeys.includes(item.key))
     errorMessage.value = `${done} 个素材已入库，${failedKeys.length} 个失败（原因见对应文件行），修正后可直接重试`
+    noticeMessage.value =
+      publishFailed.length > 0
+        ? `另有 ${publishFailed.length} 个素材已入库但上架失败（${publishFailed.join('、')}），请到素材库手动上架`
+        : ''
     resultMessage.value = ''
     return
   }
 
   // 成功后留在本页：清空已入库的清单，方便接着选下一批
   files.value = []
-  resultMessage.value = `已入库 ${done} 个素材，可继续上传，或前往素材库上架`
   resultLink.value = { label: '查看素材库', to: '/admin/assets' }
-  success(`已入库 ${done} 个素材`)
+  if (publishAfterUpload.value) {
+    resultMessage.value =
+      publishFailed.length > 0
+        ? `已入库 ${done} 个素材，其中 ${published} 个已上架；${publishFailed.length} 个上架失败（${publishFailed.join('、')}），请到素材库手动上架`
+        : `已入库并上架 ${done} 个素材，门店现在就能看到`
+    success(publishFailed.length > 0 ? `已入库 ${done} 个素材，${published} 个已上架` : `已入库并上架 ${done} 个素材`)
+  } else {
+    resultMessage.value = `已入库 ${done} 个素材，可继续上传，或前往素材库上架`
+    success(`已入库 ${done} 个素材`)
+  }
 }
 
 async function submitTask() {
@@ -760,6 +794,34 @@ onMounted(() => {
                 <template v-else>请先选择素材分类；</template>
                 文件类型按实际内容自动识别，一次最多 {{ MAX_MATERIAL_FILES }} 个。
               </p>
+            </div>
+          </div>
+
+          <!-- 入库后是否立即上架：一次勾选整批处理，省去入库后再逐个上架 -->
+          <div class="rounded-control border border-neutral-100 bg-neutral-25 px-4 py-3.5">
+            <div class="flex items-start justify-between gap-4">
+              <div class="min-w-0">
+                <p class="text-body font-medium text-neutral-900">入库后立即上架</p>
+                <p class="mt-1 text-micro leading-[16px] text-neutral-500">
+                  开启：上传完成即上架，门店立刻可见；关闭：先存为草稿，之后在素材管理里手动上架。
+                </p>
+              </div>
+              <button
+                type="button"
+                role="switch"
+                :aria-checked="publishAfterUpload"
+                :title="publishAfterUpload ? '关闭后入库为草稿' : '开启后上传完成即上架'"
+                class="relative mt-0.5 h-6 w-11 shrink-0 rounded-pill transition-colors duration-fast ease-standard
+                  focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand-500 focus-visible:ring-offset-2"
+                :class="publishAfterUpload ? 'bg-brand-500' : 'bg-neutral-300'"
+                @click="publishAfterUpload = !publishAfterUpload"
+              >
+                <span class="sr-only">入库后立即上架</span>
+                <span
+                  class="absolute left-0.5 top-0.5 h-5 w-5 rounded-pill bg-white shadow-sm transition-transform duration-fast ease-standard"
+                  :class="publishAfterUpload ? 'translate-x-5' : 'translate-x-0'"
+                />
+              </button>
             </div>
           </div>
         </div>
@@ -1026,11 +1088,11 @@ onMounted(() => {
             </li>
             <li class="flex gap-3">
               <span class="w-5 h-5 shrink-0 rounded-pill bg-brand-100 text-brand-600 text-micro font-medium flex items-center justify-center">3</span>
-              <span>点「上传并入库」，按清单顺序逐个上传，每行实时显示进度。</span>
+              <span>点「上传并上架」，按清单顺序逐个上传，每行实时显示进度。</span>
             </li>
             <li class="flex gap-3">
               <span class="w-5 h-5 shrink-0 rounded-pill bg-brand-100 text-brand-600 text-micro font-medium flex items-center justify-center">4</span>
-              <span>入库后是「草稿」，需到素材管理上架，门店才能看到并下载。</span>
+              <span>开启「入库后立即上架」时上传完成即上架；关闭则存为「草稿」，需到素材管理上架，门店才能看到并下载。</span>
             </li>
           </ol>
 
