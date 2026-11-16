@@ -97,6 +97,9 @@ async function parseError(res: Response): Promise<ApiError> {
   return new ApiError(message, code, res.status)
 }
 
+/** 单个请求的超时（毫秒）：避免后端卡住时页面一直转圈没有任何反馈 */
+const REQUEST_TIMEOUT = 20_000
+
 /** 统一请求方法。成功返回 JSON（204 返回 undefined）。 */
 export async function request<T>(path: string, options: RequestOptions = {}): Promise<T> {
   const { method = 'GET', query, body, headers, credentials = 'include' } = options
@@ -118,12 +121,26 @@ export async function request<T>(path: string, options: RequestOptions = {}): Pr
     }
   }
 
-  const res = await fetch(`${API_BASE}${path}${buildQuery(query)}`, {
-    method,
-    headers: finalHeaders,
-    body: payload,
-    credentials,
-  })
+  const controller = new AbortController()
+  const timer = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT)
+
+  let res: Response
+  try {
+    res = await fetch(`${API_BASE}${path}${buildQuery(query)}`, {
+      method,
+      headers: finalHeaders,
+      body: payload,
+      credentials,
+      signal: controller.signal,
+    })
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'AbortError') {
+      throw new ApiError(`请求超时（${REQUEST_TIMEOUT / 1000} 秒），请稍后重试`, 'TIMEOUT', 0)
+    }
+    throw new ApiError('网络异常，无法连接服务器', 'NETWORK_ERROR', 0)
+  } finally {
+    window.clearTimeout(timer)
+  }
 
   if (res.status === 204) return undefined as T
 

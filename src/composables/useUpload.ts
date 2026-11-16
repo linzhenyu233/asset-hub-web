@@ -108,7 +108,7 @@ export async function runUpload(options: UploadOptions): Promise<Session> {
 
   if (session.status === 'FAILED') {
     throw new ApiError(
-      session.errorMessage || '上传会话创建失败，请重试',
+      session.errorMessage || '无法开始上传，请重试',
       session.errorCode || 'UPLOAD_SESSION_FAILED',
       0,
     )

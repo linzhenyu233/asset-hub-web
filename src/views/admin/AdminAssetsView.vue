@@ -48,6 +48,9 @@ const {
   markBroken,
   kindOf,
   revealFrame,
+  markLoaded,
+  isLoaded,
+  showPlaceholder,
 } = useBatchPreviews()
 
 /**
@@ -311,7 +314,8 @@ async function load() {
     })
     items.value = res.items
     total.value = res.total
-    loadThumbs(res.items, { maxAutoBytes: THUMB_AUTO_MAX_BYTES, skipVideo: true })
+    // v2.11.0 的预览接口直接返回 240px 缩略图，几 KB 一张，整页可以放心自动加载
+    loadThumbs(res.items)
   } catch (error) {
     items.value = []
     total.value = 0
@@ -445,8 +449,8 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- 骨架 -->
-    <div v-if="loading" class="card p-4 space-y-3">
+    <!-- 骨架：只在没有可展示内容时出现，刷新时保留原表格，避免整块闪烁 -->
+    <div v-if="loading && items.length === 0" class="card p-4 space-y-3">
       <div v-for="index in 6" :key="index" class="flex items-center gap-4">
         <div class="skeleton h-10 w-10 rounded-control" />
         <div class="skeleton h-3 flex-1" />
@@ -526,7 +530,10 @@ onMounted(() => {
         </div>
       </div>
 
-      <div class="table-wrap group/table">
+      <div
+        class="table-wrap group/table transition-opacity duration-base ease-standard"
+        :class="loading ? 'opacity-60' : 'opacity-100'"
+      >
         <table class="data-table">
           <thead>
             <tr>
@@ -583,27 +590,23 @@ onMounted(() => {
                 <div class="flex items-center gap-3 min-w-0">
                   <div
                     class="relative w-10 h-10 shrink-0 rounded-control overflow-hidden flex items-center justify-center text-white/90"
-                    :class="thumbs[asset.id] ? 'bg-white' : asset.assetType === 'IMAGE' ? 'bg-thumb-rose' : 'bg-thumb-gold'"
+                    :class="asset.assetType === 'IMAGE' ? 'bg-thumb-rose' : 'bg-thumb-gold'"
                   >
                     <BaseIcon
-                      v-if="!thumbs[asset.id]"
+                      v-if="showPlaceholder(asset.id, kindOf(asset))"
                       :name="asset.assetType === 'IMAGE' ? 'image' : asset.assetType === 'VIDEO' ? 'video' : 'folder'"
                       :size="18"
-                    />
-                    <BaseIcon
-                      v-else-if="kindOf(asset) === 'VIDEO' && !frames[asset.id]"
-                      :name="asset.assetType === 'ARCHIVE' ? 'folder' : 'video'"
-                      :size="18"
-                      class="text-neutral-300"
                     />
                     <img
                       v-if="thumbs[asset.id] && kindOf(asset) === 'IMAGE'"
                       :src="thumbs[asset.id]"
                       :alt="asset.name"
                       class="absolute inset-0 w-full h-full object-cover bg-white"
+                      :class="isLoaded(asset.id) ? 'animate-fade-in' : 'opacity-0'"
                       loading="lazy"
                       decoding="async"
                       fetchpriority="low"
+                      @load="markLoaded(asset.id)"
                       @error="markBroken(asset.id)"
                     />
                     <video

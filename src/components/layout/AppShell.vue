@@ -225,7 +225,7 @@ watch(
       <main class="pt-topbar min-h-screen flex flex-col">
         <div
           class="flex-1 px-4 py-4 sm:py-5"
-          :class="isWide ? 'w-full sm:px-10' : 'max-w-content mx-auto sm:px-6'"
+          :class="isWide ? 'mx-auto w-full max-w-[1600px] sm:px-10' : 'max-w-content mx-auto sm:px-6'"
         >
           <RouterView />
         </div>

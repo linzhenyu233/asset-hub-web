@@ -38,7 +38,7 @@ const router = createRouter({
           path: 'admin/assets/:id',
           name: 'admin-asset-detail',
           component: () => import('../views/admin/AdminAssetDetailView.vue'),
-          meta: { title: '素材详情', role: 'ADMIN' },
+          meta: { title: '素材详情', role: 'ADMIN', wide: true },
         },
         {
           path: 'admin/upload',
@@ -56,7 +56,7 @@ const router = createRouter({
           path: 'admin/tasks/:id',
           name: 'admin-task-detail',
           component: () => import('../views/admin/AdminTaskDetailView.vue'),
-          meta: { title: '任务详情', role: 'ADMIN' },
+          meta: { title: '任务详情', role: 'ADMIN', wide: true },
         },
         {
           path: 'admin/download-logs',

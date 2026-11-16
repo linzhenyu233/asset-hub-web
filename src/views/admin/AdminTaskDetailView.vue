@@ -5,8 +5,17 @@ import { adminTaskApi } from '../../api'
 import { ApiError } from '../../api/client'
 import type { Asset, Claim, TaskDetail } from '../../api/types'
 import { useBatchPreviews } from '../../composables/useBatchPreviews'
-import { assetTypeLabel, formatBytes, formatDateTime, formatPhone } from '../../utils/format'
+import { useToast } from '../../composables/useToast'
+import {
+  assetTypeLabel,
+  formatBytes,
+  formatDateTime,
+  formatPhone,
+  toApiDateTime,
+  toInputDateTime,
+} from '../../utils/format'
 import BaseIcon from '../../components/ui/BaseIcon.vue'
+import BaseModal from '../../components/ui/BaseModal.vue'
 import EmptyState from '../../components/ui/EmptyState.vue'
 import PaginationBar from '../../components/ui/PaginationBar.vue'
 
@@ -41,6 +50,9 @@ const {
   markBroken,
   kindOf,
   revealFrame,
+  markLoaded,
+  isLoaded,
+  showPlaceholder,
 } = useBatchPreviews()
 
 /** 视频与超大图不自动加载（预览接口给的是原图），悬停时再取 */
@@ -54,6 +66,33 @@ function ensureThumb(child: Asset) {
   if (thumbs.value[child.id]) return
   if (child.assetType === 'VIDEO' || child.fileSize > THUMB_AUTO_MAX_BYTES) {
     void loadThumbOne(child)
+  }
+}
+
+/* ---------------- 领取截止时间 ---------------- */
+const { success, error: toastError } = useToast()
+const deadlineOpen = ref(false)
+const deadlineInput = ref('')
+const deadlineSubmitting = ref(false)
+
+function openDeadline() {
+  if (!task.value) return
+  deadlineInput.value = toInputDateTime(task.value.deadlineAt)
+  deadlineOpen.value = true
+}
+
+async function saveDeadline(value: string | null) {
+  if (!task.value || deadlineSubmitting.value) return
+  deadlineSubmitting.value = true
+  try {
+    const res = await adminTaskApi.setDeadline(taskId, value)
+    task.value = { ...task.value, ...res }
+    deadlineOpen.value = false
+    success(value ? '领取截止时间已更新' : '已取消截止时间')
+  } catch (error) {
+    toastError(error instanceof Error ? error.message : '截止时间保存失败')
+  } finally {
+    deadlineSubmitting.value = false
   }
 }
 
@@ -77,10 +116,7 @@ async function loadTask() {
     // 一次请求同时拿封面与包内素材缩略图（任务素材本身是 ZIP，封面取包内第一个可见媒体）
     if (task.value?.activityAsset) {
       const asset = task.value.activityAsset
-      loadThumbs([asset, ...(asset.children ?? [])], {
-        maxAutoBytes: THUMB_AUTO_MAX_BYTES,
-        skipVideo: true,
-      })
+      loadThumbs([asset, ...(asset.children ?? [])])
     } else {
       resetThumbs()
     }
@@ -167,7 +203,7 @@ onMounted(() => {
           <h1 class="mt-3 text-h1 font-bold text-neutral-900">{{ task.title }}</h1>
 
           <!-- 元信息：把发布时间、领取人数、素材规模、分发状态摊开，避免标题下大片空白 -->
-          <div class="mt-4 grid grid-cols-2 gap-3 xl:grid-cols-4">
+          <div class="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-3">
             <div class="rounded-control bg-neutral-25 px-3 py-2.5">
               <p class="text-micro text-neutral-400">发布时间</p>
               <p class="mt-0.5 truncate text-caption text-neutral-900">{{ formatDateTime(task.publishedAt) }}</p>
@@ -189,6 +225,25 @@ onMounted(() => {
                 :class="task.activityAsset.available ? 'text-feedback-success' : 'text-neutral-500'"
               >
                 {{ task.activityAsset.available ? '可下载' : '已下架' }}
+              </p>
+            </div>
+            <div class="col-span-2 rounded-control bg-neutral-25 px-3 py-2.5">
+              <div class="flex items-center justify-between gap-2">
+                <p class="text-micro text-neutral-400">截止时间</p>
+                <button
+                  type="button"
+                  class="text-micro text-brand-600 transition-colors hover:text-brand-700"
+                  @click="openDeadline"
+                >
+                  设置
+                </button>
+              </div>
+              <p
+                class="mt-0.5 truncate text-caption"
+                :class="task.expired ? 'text-feedback-danger' : 'text-neutral-900'"
+              >
+                {{ task.deadlineAt ? formatDateTime(task.deadlineAt) : '长期有效' }}
+                <span v-if="task.expired" class="ml-1 text-micro">（已截止）</span>
               </p>
             </div>
           </div>
@@ -288,33 +343,21 @@ onMounted(() => {
         <div class="mt-3 rounded-card border border-neutral-100 overflow-hidden">
           <div
             class="relative aspect-[16/9] flex items-center justify-center overflow-hidden text-white/85"
-            :class="
-              thumbs[task.activityAsset.id]
-                ? 'bg-white'
-                : task.activityAsset.assetType === 'IMAGE'
-                  ? 'bg-thumb-rose'
-                  : 'bg-thumb-gold'
-            "
+            :class="task.activityAsset.assetType === 'IMAGE' ? 'bg-thumb-rose' : 'bg-thumb-gold'"
           >
             <BaseIcon
-              v-if="!thumbs[task.activityAsset.id]"
+              v-if="showPlaceholder(task.activityAsset.id, kindOf(task.activityAsset))"
               :name="task.activityAsset.assetType === 'IMAGE' ? 'image' : task.activityAsset.assetType === 'VIDEO' ? 'video' : 'folder'"
               :size="40"
               :stroke-width="1.2"
-            />
-            <!-- 视频首帧没出来时先显示包图标，避免空白 -->
-            <BaseIcon
-              v-else-if="kindOf(task.activityAsset) === 'VIDEO' && !frames[task.activityAsset.id]"
-              name="folder"
-              :size="40"
-              :stroke-width="1.2"
-              class="text-neutral-300"
             />
             <img
               v-if="thumbs[task.activityAsset.id] && kindOf(task.activityAsset) === 'IMAGE'"
               :src="thumbs[task.activityAsset.id]"
               :alt="task.activityAsset.name"
               class="absolute inset-0 w-full h-full object-contain bg-white"
+              :class="isLoaded(task.activityAsset.id) ? 'animate-fade-in' : 'opacity-0'"
+              @load="markLoaded(task.activityAsset.id)"
               @error="markBroken(task.activityAsset.id)"
             />
             <video
@@ -362,7 +405,7 @@ onMounted(() => {
               @mouseenter="ensureThumb(child)"
             >
               <BaseIcon
-                v-if="!thumbs[child.id]"
+                v-if="showPlaceholder(child.id, kindOf(child))"
                 :name="child.assetType === 'VIDEO' ? 'video' : 'image'"
                 :size="16"
                 class="text-neutral-300"
@@ -372,8 +415,10 @@ onMounted(() => {
                 :src="thumbs[child.id]"
                 :alt="child.name"
                 class="absolute inset-0 w-full h-full object-cover bg-white"
+                :class="isLoaded(child.id) ? 'animate-fade-in' : 'opacity-0'"
                 loading="lazy"
                 decoding="async"
+                @load="markLoaded(child.id)"
                 @error="markBroken(child.id)"
               />
               <video
@@ -410,5 +455,43 @@ onMounted(() => {
         </button>
       </aside>
     </div>
+
+    <!-- 领取截止时间 -->
+    <BaseModal
+      :open="deadlineOpen"
+      title="设置领取截止时间"
+      description="到期后员工无法再领取；已领取的员工仍可下载已上架素材。"
+      :width="440"
+      @close="deadlineOpen = false"
+    >
+      <label class="label" for="task-deadline">截止时间</label>
+      <input id="task-deadline" v-model="deadlineInput" class="input" type="datetime-local" />
+      <p class="help-text">
+        留空表示长期有效；也可以设为过去时间，立即结束该任务。
+      </p>
+
+      <template #footer>
+        <button type="button" class="btn btn-secondary btn-sm" :disabled="deadlineSubmitting" @click="deadlineOpen = false">
+          关闭
+        </button>
+        <button
+          v-if="task?.deadlineAt"
+          type="button"
+          class="btn btn-secondary btn-sm"
+          :disabled="deadlineSubmitting"
+          @click="saveDeadline(null)"
+        >
+          取消截止
+        </button>
+        <button
+          type="button"
+          class="btn btn-primary btn-sm"
+          :disabled="deadlineSubmitting || !deadlineInput"
+          @click="saveDeadline(toApiDateTime(deadlineInput))"
+        >
+          {{ deadlineSubmitting ? '保存中…' : '保存' }}
+        </button>
+      </template>
+    </BaseModal>
   </div>
 </template>

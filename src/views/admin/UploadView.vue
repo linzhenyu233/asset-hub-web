@@ -5,7 +5,7 @@ import { adminAssetApi, adminTaskApi, categoryApi } from '../../api'
 import type { AssetType, Category, CategoryCode } from '../../api/types'
 import { makeRequestId, runUpload } from '../../composables/useUpload'
 import { useToast } from '../../composables/useToast'
-import { formatBytes } from '../../utils/format'
+import { formatBytes, toApiDateTime } from '../../utils/format'
 import { inspectFile, mimeLabel, type FileTypeInspection } from '../../utils/fileType'
 import BaseIcon from '../../components/ui/BaseIcon.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
@@ -36,6 +36,8 @@ interface PickedFile {
   previewUrl: string
   /** 缩略图无法解码时退回类型图标 */
   thumbBroken: boolean
+  /** 缩略图解码完成：用于淡入，避免列表一出现就「啪」地跳图 */
+  thumbLoaded: boolean
   /** 队列状态：决定清单行的底色与状态文案 */
   status: EntryStatus
   /** 当前文件的上传百分比 */
@@ -56,6 +58,8 @@ const submitting = ref(false)
 const errorMessage = ref('')
 /** 上一批上传结果的提示（成功后留在本页继续上传） */
 const resultMessage = ref('')
+/** 结果条右侧的去处（素材库 / 任务管理），随模式变化 */
+const resultLink = ref<{ label: string; to: string } | null>(null)
 /** 中性提示（例如自动忽略的文件夹条目） */
 const noticeMessage = ref('')
 
@@ -88,6 +92,8 @@ const material = reactive({
 const task = reactive({
   title: '',
   content: '',
+  /** 领取截止时间（datetime-local），留空表示长期有效 */
+  deadlineAt: '',
 })
 
 const allowedTypes = computed<AssetType[]>(() => {
@@ -235,6 +241,7 @@ function addFiles(list: File[]) {
   if (submitting.value || list.length === 0) return
   errorMessage.value = ''
   resultMessage.value = ''
+  resultLink.value = null
   noticeMessage.value = ''
 
   // 拖拽文件夹时浏览器可能把文件夹本身也塞进来（无扩展名、无 MIME），直接过滤掉
@@ -276,6 +283,7 @@ function addFiles(list: File[]) {
     error: '',
     previewUrl: createPreviewUrl(file),
     thumbBroken: false,
+    thumbLoaded: false,
     status: 'inspecting',
     percent: 0,
   }))
@@ -422,6 +430,7 @@ function switchMode(next: Mode) {
   mode.value = next
   errorMessage.value = ''
   resultMessage.value = ''
+  resultLink.value = null
   noticeMessage.value = ''
   // 任务包只接受单个 ZIP，切换模式时清掉素材清单避免误上传
   clearFiles()
@@ -521,6 +530,7 @@ async function submitMaterial() {
   // 成功后留在本页：清空已入库的清单，方便接着选下一批
   files.value = []
   resultMessage.value = `已入库 ${done} 个素材，可继续上传，或前往素材库上架`
+  resultLink.value = { label: '查看素材库', to: '/admin/assets' }
   success(`已入库 ${done} 个素材`)
 }
 
@@ -550,12 +560,19 @@ async function submitTask() {
       title: task.title.trim(),
       content: task.content.trim(),
       uploadSessionId: session.id,
+      deadlineAt: task.deadlineAt ? toApiDateTime(task.deadlineAt) : undefined,
     })
 
     file.status = 'done'
     file.percent = 100
     success('任务已发布')
-    router.push(`/admin/tasks/${result.taskId}`)
+    // 与素材入库一致：留在本页，清空表单方便接着发布下一个活动包
+    files.value = []
+    task.title = ''
+    task.content = ''
+    task.deadlineAt = ''
+    resultMessage.value = '任务已发布，可继续发布下一个活动包，或前往任务管理查看领取情况'
+    resultLink.value = { label: '查看任务', to: `/admin/tasks/${result.taskId}` }
   } catch (error) {
     file.status = 'failed'
     file.percent = 0
@@ -648,10 +665,10 @@ onMounted(() => {
           <button
             type="button"
             class="btn btn-ghost btn-sm shrink-0 text-feedback-success hover:bg-neutral-0/60"
-            @click="router.push('/admin/assets')"
+            @click="router.push(resultLink?.to ?? '/admin/assets')"
           >
             <BaseIcon name="arrow-right" :size="14" />
-            查看素材库
+            {{ resultLink?.label ?? '查看素材库' }}
           </button>
         </div>
 
@@ -765,6 +782,14 @@ onMounted(() => {
             />
             <p class="help-text">{{ task.content.length }} / 60000</p>
           </div>
+
+          <div>
+            <label class="label" for="task-deadline">领取截止时间（可选）</label>
+            <input id="task-deadline" v-model="task.deadlineAt" class="input" type="datetime-local" />
+            <p class="help-text">
+              留空表示长期有效；到期后员工无法领取，已领取的员工仍可下载已上架素材。
+            </p>
+          </div>
         </div>
 
         <!-- 文件选择 -->
@@ -867,6 +892,8 @@ onMounted(() => {
                   :src="item.previewUrl"
                   alt=""
                   class="absolute inset-0 w-full h-full object-cover bg-white"
+                  :class="item.thumbLoaded ? 'animate-fade-in' : 'opacity-0'"
+                  @load="item.thumbLoaded = true"
                   @error="item.thumbBroken = true"
                 />
                 <video
@@ -1010,7 +1037,7 @@ onMounted(() => {
           <ol v-else class="mt-4 space-y-3.5 text-caption text-neutral-600 leading-[20px]">
             <li class="flex gap-3">
               <span class="w-5 h-5 shrink-0 rounded-pill bg-brand-100 text-brand-600 text-micro font-medium flex items-center justify-center">1</span>
-              <span>填写任务标题与内容，门店在领取页看到的就是这两段文字。</span>
+              <span>填写任务标题与内容，可设置领取截止时间；门店在领取页看到的就是这两段文字。</span>
             </li>
             <li class="flex gap-3">
               <span class="w-5 h-5 shrink-0 rounded-pill bg-brand-100 text-brand-600 text-micro font-medium flex items-center justify-center">2</span>
@@ -1018,11 +1045,11 @@ onMounted(() => {
             </li>
             <li class="flex gap-3">
               <span class="w-5 h-5 shrink-0 rounded-pill bg-brand-100 text-brand-600 text-micro font-medium flex items-center justify-center">3</span>
-              <span>点「上传并发布任务」，上传完成后自动创建任务并跳到任务详情。</span>
+              <span>点「上传并发布任务」，上传完成后自动创建任务，结果条里可直接进入任务详情。</span>
             </li>
             <li class="flex gap-3">
               <span class="w-5 h-5 shrink-0 rounded-pill bg-brand-100 text-brand-600 text-micro font-medium flex items-center justify-center">4</span>
-              <span>员工领取后即可查看、下载包内素材，领取与下载记录可追溯。</span>
+              <span>员工领取后可查看、下载包内素材；到期后无法领取，已领取的仍可下载。</span>
             </li>
           </ol>
 
@@ -1031,7 +1058,7 @@ onMounted(() => {
               单次最多 {{ MAX_MATERIAL_FILES }} 个文件；单个失败不影响其它文件，失败项会留在清单里，修正后可直接重试。
             </template>
             <template v-else>
-              上传后自动归入「活动素材」分类；发布后可在任务管理查看领取人数，下载明细见下载记录。
+              上传后自动归入「活动素材」分类；发布后可在任务管理查看领取人数与截止时间，下载明细见下载记录。
             </template>
           </p>
         </div>

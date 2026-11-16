@@ -98,7 +98,7 @@ watch(
       <span class="truncate max-w-[340px]">{{ preview.filename }}</span>
       <span>{{ preview.mimeType }}</span>
       <span>{{ formatBytes(preview.fileSize) }}</span>
-      <span>票据有效至 {{ formatDateTime(preview.expiresAt) }}</span>
+      <span>预览有效期至 {{ formatDateTime(preview.expiresAt) }}</span>
     </div>
 
     <template #footer>

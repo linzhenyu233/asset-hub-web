@@ -96,8 +96,18 @@ const pagedGroups = computed(() => {
 const aggTruncated = computed(() => aggTotal.value > AGGREGATE_LIMIT)
 
 /** 聚合行上的素材封面色块 */
-const { thumbs, frames, load: loadThumbs, reset: resetThumbs, markBroken, kindOf, revealFrame } =
-  useBatchPreviews()
+const {
+  thumbs,
+  frames,
+  load: loadThumbs,
+  reset: resetThumbs,
+  markBroken,
+  kindOf,
+  revealFrame,
+  markLoaded,
+  isLoaded,
+  showPlaceholder,
+} = useBatchPreviews()
 
 function loadAggregateThumbs() {
   const targets = pagedGroups.value.map((group) => ({ id: group.assetId, assetType: 'IMAGE' }))
@@ -438,15 +448,22 @@ onMounted(load)
               <tr v-for="group in pagedGroups" :key="group.assetId">
                 <td>
                   <div class="relative w-10 h-10 rounded-sm overflow-hidden border border-neutral-100 bg-white flex items-center justify-center">
-                    <BaseIcon v-if="!thumbs[group.assetId]" name="image" :size="16" class="text-neutral-300" />
+                    <BaseIcon
+                      v-if="showPlaceholder(group.assetId, groupKind(group.assetId))"
+                      name="image"
+                      :size="16"
+                      class="text-neutral-300"
+                    />
                     <img
                       v-if="thumbs[group.assetId] && groupKind(group.assetId) === 'IMAGE'"
                       :src="thumbs[group.assetId]"
                       alt=""
                       class="absolute inset-0 w-full h-full object-cover bg-white"
+                      :class="isLoaded(group.assetId) ? 'animate-fade-in' : 'opacity-0'"
                       loading="lazy"
                       decoding="async"
                       fetchpriority="low"
+                      @load="markLoaded(group.assetId)"
                       @error="markBroken(group.assetId)"
                     />
                     <video

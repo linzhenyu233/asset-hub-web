@@ -1,4 +1,4 @@
-import { request, putBinary } from './client'
+import { request, putBinary, PREVIEW } from './client'
 import type {
   AdminAccount,
   AdminAccountInput,
@@ -14,6 +14,7 @@ import type {
   BatchDeleteResult,
   BatchPreviewInput,
   BatchPreviewResult,
+  Category,
   CategoryResult,
   ChangePasswordInput,
   ClaimFilters,
@@ -29,6 +30,7 @@ import type {
   OperationPage,
   PreviewResult,
   Session,
+  Task,
   TaskDetail,
   TaskInput,
   TaskPage,
@@ -66,8 +68,41 @@ export const accountApi = {
 }
 
 /* ---------------- 固定分类 ---------------- */
+const CATEGORY_CACHE_KEY = 'assethub_categories_v1'
+/** 固定分类几乎不变，缓存 24 小时；后端调完分类最多一天自动生效 */
+const CATEGORY_CACHE_TTL = 24 * 60 * 60 * 1000
+
+function readCategoryCache(): CategoryResult | null {
+  try {
+    const raw = localStorage.getItem(CATEGORY_CACHE_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as { at?: number; items?: Category[] }
+    if (!Array.isArray(parsed.items) || parsed.items.length === 0) return null
+    if (typeof parsed.at !== 'number' || Date.now() - parsed.at > CATEGORY_CACHE_TTL) return null
+    return { items: parsed.items }
+  } catch {
+    return null
+  }
+}
+
 export const categoryApi = {
-  list: () => request<CategoryResult>('/asset-categories'),
+  /**
+   * 固定分类：优先读本地缓存（24 小时），进上传页不用再等一次接口；
+   * 传 force 可跳过缓存强制刷新。
+   */
+  list: async (options: { force?: boolean } = {}): Promise<CategoryResult> => {
+    if (!PREVIEW && !options.force) {
+      const cached = readCategoryCache()
+      if (cached) return cached
+    }
+    const res = await request<CategoryResult>('/asset-categories')
+    try {
+      localStorage.setItem(CATEGORY_CACHE_KEY, JSON.stringify({ at: Date.now(), items: res.items }))
+    } catch {
+      // 浏览器隐私模式禁止写 localStorage，忽略即可
+    }
+    return res
+  },
 }
 
 /* ---------------- 素材下载 ---------------- */
@@ -168,6 +203,13 @@ export const adminTaskApi = {
     request<TaskResult>('/admin/tasks', { method: 'POST', body: input }),
 
   detail: (id: string) => request<TaskDetail>(`/admin/tasks/${id}`),
+
+  /**
+   * 设置或取消领取截止时间（v2.11.0）：deadlineAt 传 null 表示长期有效。
+   * 截止时间须晚于发布时间，可设为过去时间以结束历史任务。
+   */
+  setDeadline: (id: string, deadlineAt: string | null) =>
+    request<Task>(`/admin/tasks/${id}/deadline`, { method: 'PUT', body: { deadlineAt } }),
 
   claims: (id: string, filters: ClaimFilters = {}) =>
     request<ClaimPage>(`/admin/tasks/${id}/claims`, {

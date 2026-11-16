@@ -214,7 +214,7 @@ const taskSeeds: TaskSeed[] = [
 
 let taskSeq = 0
 
-const tasks: Task[] = taskSeeds.map((seed) => ({
+const tasks: Task[] = taskSeeds.map((seed, index) => ({
   id: String(++taskSeq),
   title: seed.title,
   content: seed.content,
@@ -222,6 +222,9 @@ const tasks: Task[] = taskSeeds.map((seed) => ({
   claimCount: seed.claimCount,
   claimed: seed.claimed,
   claimedAt: seed.claimedAt,
+  // 演示一个已截止任务，便于查看列表徽章与详情状态
+  deadlineAt: index === 1 ? '2026-10-20 23:59:59' : null,
+  expired: index === 1,
 }))
 
 const taskAssets: Asset[] = taskSeeds.map((seed) => assets[seed.assetIndex])
@@ -294,6 +297,42 @@ const operations: Operation[] = assets.slice(0, 8).map((asset, index) => {
   } satisfies Operation
 })
 
+// 补两条非素材对象记录，便于演示「对象类型」筛选（任务、子账号）
+operations.push(
+  {
+    id: String(++operationSeq),
+    action: 'TASK_PUBLISH',
+    afterState: 'PUBLISHED',
+    beforeState: '',
+    fileLocatorSnapshot: {},
+    operatedAt: '2026-10-25 10:12:00',
+    operatorId: '1',
+    operatorSnapshot: '预览管理员',
+    requestId: 'op:demo-3001',
+    result: 'SUCCESS',
+    storageProvider: 'OSS',
+    targetId: '4',
+    targetNameSnapshot: '门店开业物料包（华东区）',
+    targetType: 'TASK',
+  } satisfies Operation,
+  {
+    id: String(++operationSeq),
+    action: 'ACCOUNT_CREATE',
+    afterState: 'ACTIVE',
+    beforeState: '',
+    fileLocatorSnapshot: {},
+    operatedAt: '2026-10-26 09:40:00',
+    operatorId: '1',
+    operatorSnapshot: '预览管理员',
+    requestId: 'op:demo-3002',
+    result: 'SUCCESS',
+    storageProvider: 'OSS',
+    targetId: '2',
+    targetNameSnapshot: 'lindongmei',
+    targetType: 'ADMIN_ACCOUNT',
+  } satisfies Operation,
+)
+
 /* ---------------- 上传会话 ---------------- */
 
 let sessionSeq = 0
@@ -323,8 +362,11 @@ function paginate<T>(list: T[], page: number, pageSize: number) {
 /** 预览模式没有真实文件，用内联 SVG 占位 */
 function previewPayload(asset: Asset): PreviewResult {
   const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="800" height="600"><rect width="800" height="600" fill="#2b2226"/><text x="400" y="286" fill="#ffffff" font-size="26" font-family="sans-serif" text-anchor="middle">预览模式占位图</text><text x="400" y="330" fill="#c9bcc2" font-size="18" font-family="sans-serif" text-anchor="middle">${asset.name}</text><text x="400" y="366" fill="#8d7f85" font-size="15" font-family="sans-serif" text-anchor="middle">关闭 VITE_PREVIEW 后显示真实文件</text></svg>`
+  const url = `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`
   return {
-    url: `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`,
+    url,
+    // v2.11.0 的 thumbnailUrl：真实环境是 240px JPEG，演示模式复用同一张占位图
+    thumbnailUrl: url,
     expiresAt: '2026-10-21 10:05:00',
     filename: asset.originalFilename,
     mimeType: 'image/svg+xml',
@@ -675,6 +717,7 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
 
       if (segments.length === 2 && method === 'POST') {
         const id = String(++taskSeq)
+        const deadlineAt = str(body.deadlineAt) || null
         const created: Task = {
           id,
           title: str(body.title) || '未命名任务',
@@ -683,10 +726,18 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
           claimCount: 0,
           claimed: false,
           claimedAt: null,
+          deadlineAt,
+          expired: false,
         }
         tasks.unshift(created)
         taskAssets.unshift(assets[0])
-        const result: TaskResult = { taskId: id, activityAssetId: assets[0].id, publishedAt: NOW }
+        const result: TaskResult = {
+          taskId: id,
+          activityAssetId: assets[0].id,
+          publishedAt: NOW,
+          deadlineAt,
+          expired: false,
+        }
         return result as unknown as T
       }
 
@@ -695,6 +746,18 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
 
       if (segments.length === 3 && method === 'GET') {
         return toDetail(index) as unknown as T
+      }
+
+      // v2.11.0：设置或取消领取截止时间
+      if (segments.length === 4 && segments[3] === 'deadline' && method === 'PUT') {
+        const raw = body.deadlineAt
+        const deadlineAt = raw === null || raw === undefined || raw === '' ? null : String(raw)
+        tasks[index] = {
+          ...tasks[index],
+          deadlineAt,
+          expired: deadlineAt ? deadlineAt < NOW : false,
+        }
+        return tasks[index] as unknown as T
       }
 
       if (segments.length === 4 && segments[3] === 'claims' && method === 'GET') {
@@ -720,9 +783,11 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
       const action = str(query.action)
       const result = str(query.result)
       const operatorId = str(query.operatorId)
+      const targetType = str(query.targetType)
       if (action) list = list.filter((item) => item.action === action)
       if (result) list = list.filter((item) => item.result === result)
       if (operatorId) list = list.filter((item) => item.operatorId === operatorId)
+      if (targetType) list = list.filter((item) => item.targetType === targetType)
       const pageResult: OperationPage = paginate(list, page, pageSize)
       return pageResult as unknown as T
     }

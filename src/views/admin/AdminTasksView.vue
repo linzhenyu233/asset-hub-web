@@ -130,6 +130,7 @@ onMounted(load)
                 <span class="badge" :class="item.claimCount > 0 ? 'badge-claimed' : 'badge-neutral'">
                   {{ item.claimCount }} 人
                 </span>
+                <span v-if="item.expired" class="badge badge-danger ml-1">已截止</span>
               </td>
               <td class="text-caption whitespace-nowrap">{{ formatDateTime(item.publishedAt) }}</td>
               <td>

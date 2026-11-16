@@ -38,11 +38,25 @@ const {
   thumbs,
   frames,
   load: loadThumbs,
+  loadOne: loadThumbOne,
   reset: resetThumbs,
   markBroken,
   kindOf,
   revealFrame,
+  markLoaded,
+  isLoaded,
+  showPlaceholder,
 } = useBatchPreviews()
+
+/** 视频和超过 3MB 的图片不自动拉缩略图（预览接口给的是原图），悬停时再取 */
+const THUMB_AUTO_MAX_BYTES = 3_000_000
+
+function ensureThumb(child: Asset) {
+  if (thumbs.value[child.id]) return
+  if (child.assetType === 'VIDEO' || child.fileSize > THUMB_AUTO_MAX_BYTES) {
+    void loadThumbOne(child)
+  }
+}
 
 watch(
   () => children.value.map((child) => child.id).join(','),
@@ -51,6 +65,7 @@ watch(
       resetThumbs()
       return
     }
+    // v2.11.0 的预览接口直接返回 240px 缩略图，包内素材可以整批加载
     loadThumbs(children.value)
   },
   { immediate: true },
@@ -149,24 +164,23 @@ async function download(child: Asset) {
         v-for="child in children"
         :key="child.id"
         class="flex items-center gap-2 rounded-control border border-neutral-100 px-2.5 py-2"
+        @mouseenter="ensureThumb(child)"
       >
         <div
           class="relative w-8 h-8 shrink-0 rounded-sm overflow-hidden flex items-center justify-center text-white/90"
-          :class="thumbs[child.id] ? 'bg-white' : thumbClass(child)"
+          :class="thumbClass(child)"
         >
-          <BaseIcon v-if="!thumbs[child.id]" :name="iconOf(child)" :size="16" />
-          <BaseIcon
-            v-else-if="kindOf(child) === 'VIDEO' && !frames[child.id]"
-            :name="iconOf(child)"
-            :size="16"
-            class="text-neutral-300"
-          />
+          <BaseIcon v-if="showPlaceholder(child.id, kindOf(child))" :name="iconOf(child)" :size="16" />
           <img
             v-if="thumbs[child.id] && kindOf(child) === 'IMAGE'"
             :src="thumbs[child.id]"
             :alt="child.name"
             class="absolute inset-0 w-full h-full object-cover bg-white"
+            :class="isLoaded(child.id) ? 'animate-fade-in' : 'opacity-0'"
             loading="lazy"
+            decoding="async"
+            fetchpriority="low"
+            @load="markLoaded(child.id)"
             @error="markBroken(child.id)"
           />
           <video
@@ -227,32 +241,30 @@ async function download(child: Asset) {
         v-for="child in children"
         :key="child.id"
         class="rounded-card border border-neutral-100 overflow-hidden bg-neutral-0"
+        @mouseenter="ensureThumb(child)"
       >
         <div
           class="relative aspect-[4/3] flex items-center justify-center overflow-hidden group"
-          :class="thumbs[child.id] ? 'bg-white' : thumbClass(child)"
+          :class="thumbClass(child)"
         >
+          <!-- 占位图标垫在图片下面，图片淡入时自然盖住它，不会出现空白帧 -->
           <BaseIcon
-            v-if="!thumbs[child.id]"
+            v-if="showPlaceholder(child.id, kindOf(child))"
             :name="iconOf(child)"
             :size="28"
             :stroke-width="1.2"
             class="text-white/85"
-          />
-          <!-- 视频首帧未就绪时才露占位图标；图片有封面就不显示，避免透明 PNG 透出图标 -->
-          <BaseIcon
-            v-else-if="kindOf(child) === 'VIDEO' && !frames[child.id]"
-            :name="iconOf(child)"
-            :size="28"
-            :stroke-width="1.2"
-            class="text-neutral-300"
           />
           <img
             v-if="thumbs[child.id] && kindOf(child) === 'IMAGE'"
             :src="thumbs[child.id]"
             :alt="child.name"
             class="absolute inset-0 w-full h-full object-contain bg-white"
+            :class="isLoaded(child.id) ? 'animate-fade-in' : 'opacity-0'"
             loading="lazy"
+            decoding="async"
+            fetchpriority="low"
+            @load="markLoaded(child.id)"
             @error="markBroken(child.id)"
           />
           <video

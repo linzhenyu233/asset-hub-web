@@ -18,6 +18,7 @@ export type OperationAction =
   | 'OFFLINE'
   | 'DELETE'
   | 'TASK_PUBLISH'
+  | 'TASK_DEADLINE'
   | 'ACCOUNT_CREATE'
   | 'ACCOUNT_STATUS'
 export type OperationResult = 'SUCCESS' | 'FAILED'
@@ -86,6 +87,11 @@ export interface AdminAccountStatusInput {
 export interface PreviewResult {
   /** 短时预览票据相对地址，可直接用于 img / video 的 src */
   url: string
+  /**
+   * 240px 缩略图地址（v2.11.0 起）：图片缩略图或视频首帧，统一是 JPEG，
+   * 沿用同一票据与到期时间。列表缩略图优先用它，避免下载几 MB 原图。
+   */
+  thumbnailUrl?: string
   expiresAt: string
   filename: string
   mimeType: string
@@ -257,6 +263,10 @@ export interface Task {
   claimCount: number
   claimed: boolean
   claimedAt: string | null
+  /** 领取截止时间（北京时间）；null 表示长期有效 */
+  deadlineAt?: string | null
+  /** 服务端判定是否已过截止时间；已领取的任务也可能为 true */
+  expired?: boolean
 }
 
 export interface TaskDetail extends Task {
@@ -270,12 +280,16 @@ export interface TaskInput {
   title: string
   content: string
   uploadSessionId: string
+  /** 可选领取截止时间；省略或 null 表示无截止时间 */
+  deadlineAt?: string | null
 }
 
 export interface TaskResult {
   taskId: string
   activityAssetId: string
   publishedAt: string
+  deadlineAt?: string | null
+  expired?: boolean
 }
 
 export interface Claim {

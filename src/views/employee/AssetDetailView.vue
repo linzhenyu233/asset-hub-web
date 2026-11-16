@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { adminAssetApi, assetApi } from '../../api'
 import { ApiError, resolveFileUrl, triggerDownload } from '../../api/client'
@@ -36,6 +36,11 @@ const {
 const inlineSrc = computed(() => (preview.value ? resolveFileUrl(preview.value.url) : ''))
 const inlineIsImage = computed(() => preview.value?.mimeType.startsWith('image/') === true)
 const inlineIsVideo = computed(() => preview.value?.mimeType.startsWith('video/') === true)
+/** 大图解码完成：解码前保留渐变底色，解码后淡入，避免先白闪一下 */
+const inlineImageReady = ref(false)
+watch(inlineSrc, () => {
+  inlineImageReady.value = false
+})
 
 /** 员工端只可见已上架素材，管理端预览时用提示区分 */
 const isVisibleToEmployee = computed(() => asset.value?.status === 'PUBLISHED')
@@ -153,13 +158,13 @@ onMounted(load)
             <div
               class="relative aspect-[4/3] w-full overflow-hidden"
               :class="
-                inlineSrc
-                  ? inlineIsVideo
-                    ? 'bg-neutral-900'
-                    : 'bg-white'
-                  : asset.assetType === 'IMAGE'
-                    ? 'bg-thumb-rose'
-                    : 'bg-thumb-gold'
+                inlineSrc && inlineIsVideo
+                  ? 'bg-neutral-900'
+                  : inlineImageReady
+                    ? 'bg-white'
+                    : asset.assetType === 'IMAGE'
+                      ? 'bg-thumb-rose'
+                      : 'bg-thumb-gold'
               "
             >
               <img
@@ -167,6 +172,8 @@ onMounted(load)
                 :src="inlineSrc"
                 :alt="asset.name"
                 class="absolute inset-0 w-full h-full object-contain bg-white cursor-zoom-in"
+                :class="inlineImageReady ? 'animate-fade-in' : 'opacity-0'"
+                @load="inlineImageReady = true"
                 @click="previewOpen = true"
               />
               <video
