@@ -127,6 +127,18 @@ function markPasswordRequired(): void {
   persistPreviewUser(state.user)
 }
 
+/**
+ * 业务接口返回 401（会话撤销/过期）时清掉本地身份。
+ * 必须真的清空 state.user：否则路由守卫会把已登录用户从 /login 弹回 /admin，
+ * 每弹一次又发一轮请求，变成 401 循环。
+ */
+function clearSession(): void {
+  setAuthToken(null)
+  persistPreviewUser(null)
+  state.user = null
+  state.ready = true
+}
+
 async function logout(): Promise<void> {
   if (PREVIEW) {
     persistPreviewUser(null)
@@ -156,5 +168,6 @@ export function useSession() {
     logout,
     changePassword,
     markPasswordRequired,
+    clearSession,
   }
 }

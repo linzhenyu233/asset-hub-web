@@ -26,6 +26,9 @@ export const API_ORIGIN = /^https?:\/\//i.test(API_BASE)
 /** 后端要求先改密时广播的事件名（403 PASSWORD_CHANGE_REQUIRED）。 */
 export const PASSWORD_REQUIRED_EVENT = 'assethub:password-required'
 
+/** 登录态被撤销或过期（业务接口返回 401）时广播的事件名。 */
+export const SESSION_EXPIRED_EVENT = 'assethub:session-expired'
+
 export class ApiError extends Error {
   readonly code: string
   readonly status: number
@@ -81,6 +84,15 @@ function buildHeaders(extra?: Record<string, string>): Record<string, string> {
   return headers
 }
 
+/**
+ * 会话被撤销或过期：清掉 localStorage 里的 Bearer token 并广播。
+ * 不清 token 的话它会一直挂在后续每个请求上；不广播则页面只显示一句错误，停在打不开的页面上。
+ */
+function handleUnauthorized(): void {
+  setAuthToken(null)
+  window.dispatchEvent(new CustomEvent(SESSION_EXPIRED_EVENT))
+}
+
 async function parseError(res: Response): Promise<ApiError> {
   let code = `HTTP_${res.status}`
   let message = `请求失败（${res.status}）`
@@ -91,7 +103,10 @@ async function parseError(res: Response): Promise<ApiError> {
   } catch {
     // 非 JSON 错误体，保留默认文案
   }
-  if (res.status === 401) message = message || '登录状态已失效，请重新登录'
+  if (res.status === 401) {
+    message = message || '登录状态已失效，请重新登录'
+    handleUnauthorized()
+  }
   // 员工未改初始密码时后端会拒绝业务接口，通知应用弹出强制改密
   if (res.status === 403 && code === 'PASSWORD_CHANGE_REQUIRED') {
     window.dispatchEvent(new CustomEvent(PASSWORD_REQUIRED_EVENT))
@@ -249,6 +264,8 @@ export function putBinary(
           message = `文件传输被网关中断（${xhr.status}）：常见原因是文件过大导致超时或后端处理中断，请压缩文件后重试`
         }
       }
+      // 上传途中会话被撤销也要走统一登出，否则大文件传完才发现白传
+      if (xhr.status === 401) handleUnauthorized()
       reject(new ApiError(message, code, xhr.status))
     }
 

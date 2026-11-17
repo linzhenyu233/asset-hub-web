@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import { PASSWORD_REQUIRED_EVENT } from '../../api/client'
+import { PASSWORD_REQUIRED_EVENT, SESSION_EXPIRED_EVENT } from '../../api/client'
 import { useSession } from '../../stores/session'
 import BrandMark from '../ui/BrandMark.vue'
 import BaseIcon from '../ui/BaseIcon.vue'
@@ -10,8 +10,15 @@ import ChangePasswordModal from '../ui/ChangePasswordModal.vue'
 
 const route = useRoute()
 const router = useRouter()
-const { state, isSuperAdmin, mustChangePassword, isPreview, logout, markPasswordRequired } =
-  useSession()
+const {
+  state,
+  isSuperAdmin,
+  mustChangePassword,
+  isPreview,
+  logout,
+  markPasswordRequired,
+  clearSession,
+} = useSession()
 
 const collapsed = ref(false)
 const mobileOpen = ref(false)
@@ -43,8 +50,20 @@ function onPasswordRequired() {
   markPasswordRequired()
 }
 
-onMounted(() => window.addEventListener(PASSWORD_REQUIRED_EVENT, onPasswordRequired))
-onBeforeUnmount(() => window.removeEventListener(PASSWORD_REQUIRED_EVENT, onPasswordRequired))
+/** 任意业务接口返回 401（会话被撤销/过期）：清本地身份并回登录页，别留在打不开的页面上 */
+function onSessionExpired() {
+  clearSession()
+  if (route.path !== '/login') void router.replace('/login')
+}
+
+onMounted(() => {
+  window.addEventListener(PASSWORD_REQUIRED_EVENT, onPasswordRequired)
+  window.addEventListener(SESSION_EXPIRED_EVENT, onSessionExpired)
+})
+onBeforeUnmount(() => {
+  window.removeEventListener(PASSWORD_REQUIRED_EVENT, onPasswordRequired)
+  window.removeEventListener(SESSION_EXPIRED_EVENT, onSessionExpired)
+})
 
 const displayName = computed(
   () => state.user?.displayName || state.user?.username || state.user?.phone || '未命名用户',
