@@ -70,39 +70,66 @@ function redirectAfterLogin() {
 
 <template>
   <div class="min-h-screen flex bg-neutral-0">
-    <!-- 品牌栏（560px） -->
-    <section class="hidden lg:flex w-[560px] shrink-0 relative overflow-hidden bg-brand-panel">
-      <div class="absolute -top-24 -right-16 w-[360px] h-[360px] rounded-full border border-white/10" />
-      <div class="absolute top-24 -right-32 w-[520px] h-[520px] rounded-full border border-white/10" />
-      <div class="absolute -bottom-40 -left-24 w-[420px] h-[420px] rounded-full border border-white/10" />
-      <div class="absolute inset-0 opacity-[0.07] bg-[radial-gradient(circle_at_20%_20%,#fff_0,transparent_45%)]" />
+    <!-- 品牌栏（560px，对齐 ardot A7 品牌區 5:2） -->
+    <section
+      class="hidden lg:flex w-[560px] shrink-0 relative overflow-hidden bg-[linear-gradient(225deg,#F2789F_0%,#E85E8F_32%,#B93B6C_68%,#7E2148_100%)] shadow-[inset_0_0_140px_rgba(60,6,26,0.35)]"
+    >
+      <!-- 景深：上右高光 / 左下暗部 / 颗粒 -->
+      <div class="pointer-events-none absolute -top-[220px] -right-[180px] w-[560px] h-[560px] rounded-full bg-white/20 blur-[150px]" />
+      <div class="pointer-events-none absolute -bottom-[240px] -left-[200px] w-[640px] h-[640px] rounded-full bg-[#5A0E2D]/50 blur-[170px]" />
+      <svg
+        class="pointer-events-none absolute inset-0 w-full h-full opacity-[0.12] mix-blend-soft-light"
+        aria-hidden="true"
+      >
+        <filter id="login-grain">
+          <feTurbulence type="fractalNoise" baseFrequency="0.85" numOctaves="3" />
+        </filter>
+        <rect width="100%" height="100%" filter="url(#login-grain)" />
+      </svg>
 
-      <div class="relative z-10 flex flex-col justify-between w-full px-12 py-12">
+      <div class="absolute -top-20 -right-20 w-[340px] h-[340px] rounded-full border border-white/10" />
+      <!-- 标识区背后：柔光 + 同心细环，避免大片纯色发平 -->
+      <div
+        class="pointer-events-none absolute left-1/2 top-[300px] w-[420px] h-[420px] -translate-x-1/2 -translate-y-1/2 rounded-full bg-white/10 blur-[120px]"
+      />
+      <svg
+        class="pointer-events-none absolute left-1/2 top-[300px] -translate-x-1/2 -translate-y-1/2"
+        width="720"
+        height="720"
+        viewBox="0 0 720 720"
+        fill="none"
+        aria-hidden="true"
+      >
+        <circle cx="360" cy="360" r="200" stroke="#FFFFFF" stroke-opacity="0.1" />
+        <circle cx="360" cy="360" r="280" stroke="#FFFFFF" stroke-opacity="0.07" />
+        <circle cx="360" cy="360" r="356" stroke="#FFFFFF" stroke-opacity="0.05" />
+      </svg>
+
+      <div class="relative z-10 flex flex-col w-full px-12 py-12">
         <div class="flex items-center gap-3">
-          <span class="w-9 h-9 rounded-pill bg-white/15 flex items-center justify-center">
-            <BrandMark variant="white" :size="24" />
-          </span>
-          <div>
-            <p class="text-white text-body font-medium leading-tight">钻石世家</p>
-            <p class="text-white/70 text-micro">SHINING HOUSE</p>
-          </div>
+          <BrandMark variant="white" :size="34" />
+          <p class="text-white text-h3 font-medium">钻石世家云素材中台</p>
         </div>
 
-        <div class="pb-8">
-          <h1 class="text-[32px] leading-[40px] font-bold text-white">
-            让每一份素材<br />在正确的节点抵达门店
-          </h1>
-          <p class="mt-4 text-body text-white/85 leading-[24px] max-w-[380px]">
-            统一管理图片、视频与任务素材，按角色与门店精准分发，下载全程可追溯。
-          </p>
+        <!-- 标识与标语整体下移，在剩余空间内垂直居中 -->
+        <div class="my-auto">
+          <img
+            src="/brand/logo-full-white-v2.png"
+            alt="SHINING HOUSE · KEEP LOVING KEEP SHINING"
+            width="440"
+            height="181"
+            class="w-[440px] max-w-full"
+          />
 
-          <div class="mt-8 flex items-center gap-3">
+          <h1 class="mt-7 text-[20px] leading-[38px] font-bold text-white">欢迎使用钻石世家云素材中台</h1>
+
+          <div class="mt-6 flex items-center gap-3">
             <span class="h-px w-8 bg-white/40" />
             <p class="text-caption text-white/70">图片 · 视频 · 任务素材 · 统一授权</p>
           </div>
         </div>
 
-        <div class="text-caption text-white/60">
+        <div class="mt-8 text-caption text-white/60">
           <div class="flex items-center justify-between gap-4">
             <span>© 2026 钻石世家 素材中心</span>
             <span>内部系统 · 请勿外发</span>
