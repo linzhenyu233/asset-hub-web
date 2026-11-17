@@ -8,6 +8,7 @@ import { useBatchPreviews } from '../../composables/useBatchPreviews'
 import { assetTypeLabel, formatBytes, formatDateTime, nextDayStart } from '../../utils/format'
 import PageHeader from '../../components/ui/PageHeader.vue'
 import BaseIcon from '../../components/ui/BaseIcon.vue'
+import CopyButton from '../../components/ui/CopyButton.vue'
 import EmptyState from '../../components/ui/EmptyState.vue'
 import EntityPicker from '../../components/ui/EntityPicker.vue'
 import PaginationBar from '../../components/ui/PaginationBar.vue'
@@ -476,7 +477,13 @@ onMounted(load)
           <tbody>
             <tr v-for="item in items" :key="item.id">
               <td class="text-caption whitespace-nowrap">{{ formatDateTime(item.createdAt) }}</td>
-              <td class="text-caption">{{ item.displayName || `#${item.userId}` }}</td>
+              <td>
+                <p class="text-body text-neutral-900 truncate max-w-[220px]">{{ item.displayName || '未命名' }}</p>
+                <p class="flex items-center gap-1 text-micro text-neutral-400">
+                  <span>#{{ item.userId }}</span>
+                  <CopyButton :value="item.userId" label="员工编号" />
+                </p>
+              </td>
               <td class="text-caption">{{ item.storeName || '—' }}</td>
               <td>
                 <button
@@ -486,7 +493,10 @@ onMounted(load)
                 >
                   {{ item.assetName }}
                 </button>
-                <p class="text-micro text-neutral-400">#{{ item.assetId }}</p>
+                <p class="flex items-center gap-1 text-micro text-neutral-400">
+                  <span>#{{ item.assetId }}</span>
+                  <CopyButton :value="item.assetId" label="素材编号" />
+                </p>
               </td>
               <td class="text-micro text-neutral-400 font-mono truncate max-w-[200px]">{{ item.requestId }}</td>
             </tr>

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { useSession } from '../stores/session'
 import { ApiError } from '../api/client'
@@ -17,8 +17,6 @@ const username = ref(isPreview ? 'admin' : '')
 const password = ref(isPreview ? 'admin123' : '')
 const showPassword = ref(false)
 
-const submitLabel = computed(() => '登录管理后台')
-
 function fillAdmin() {
   username.value = 'admin'
   password.value = 'admin123'
@@ -31,7 +29,8 @@ function normalizeError(error: unknown): string {
       return '请求来源未被后端允许，请检查代理 Origin 或后端 CORS_ALLOWED_ORIGIN'
     }
     if (error.status === 0) return '网络异常，请检查后端服务是否可达'
-    if (error.status === 401) return '账号或密码不正确，请重新输入'
+    // 后端对"账号不存在"和"密码错误"都只回 401，这里不区分，统一把开通入口说出来
+    if (error.status === 401) return '账号或密码不正确；如果还没有账号，请联系超级管理员添加'
     if (error.status === 403) return '当前账号无管理端权限，请联系超级管理员'
     return error.message
   }
@@ -128,8 +127,7 @@ function redirectAfterLogin() {
           <span class="text-h3 font-bold text-neutral-900">素材中心</span>
         </div>
 
-        <h2 class="text-h1 font-bold text-neutral-900">登录管理中台</h2>
-        <p class="mt-1 text-caption text-neutral-500">仅限总部管理账号登录</p>
+        <h2 class="text-h1 font-bold text-neutral-900">登录素材管理中心</h2>
 
         <div v-if="isPreview" class="mt-4 space-y-3">
           <div
@@ -209,7 +207,7 @@ function redirectAfterLogin() {
             >
               <path d="M12 3a9 9 0 1 0 9 9" />
             </svg>
-            {{ loading ? '登录中…' : submitLabel }}
+            {{ loading ? '登录中…' : '登录' }}
           </button>
         </form>
 

@@ -11,6 +11,7 @@ import { assetTypeLabel, categoryLabel, formatBytes, formatDateTime } from '../.
 import PageHeader from '../../components/ui/PageHeader.vue'
 import BaseIcon from '../../components/ui/BaseIcon.vue'
 import BaseModal from '../../components/ui/BaseModal.vue'
+import CopyButton from '../../components/ui/CopyButton.vue'
 import EmptyState from '../../components/ui/EmptyState.vue'
 import PaginationBar from '../../components/ui/PaginationBar.vue'
 import SelectionCheckbox from '../../components/ui/SelectionCheckbox.vue'
@@ -623,8 +624,11 @@ onMounted(() => {
                   </div>
                   <div class="min-w-0">
                     <p class="text-body font-medium text-neutral-900 truncate max-w-[260px] 2xl:max-w-[360px] 3xl:max-w-[460px]">{{ asset.name }}</p>
-                    <p class="text-micro text-neutral-400 truncate max-w-[260px] 2xl:max-w-[360px] 3xl:max-w-[460px]">
-                      #{{ asset.assetId }} · {{ asset.originalFilename }}
+                    <p class="flex items-center gap-1 text-micro text-neutral-400">
+                      <span class="truncate max-w-[240px] 2xl:max-w-[340px] 3xl:max-w-[440px]">
+                        #{{ asset.assetId }} · {{ asset.originalFilename }}
+                      </span>
+                      <CopyButton :value="asset.assetId" label="素材编号" />
                     </p>
                   </div>
                 </div>

@@ -82,7 +82,7 @@ async function loginAdmin(username: string, password: string): Promise<User> {
   if (PREVIEW) {
     await delay(320)
     const account = findMockAccount(username)
-    if (!account) throw new Error('账号不存在，请检查账号')
+    if (!account) throw new Error('账号不存在，请联系超级管理员添加账号')
     if (account.password !== password) throw new Error('密码不正确，请重新输入')
     if (account.user.role !== 'ADMIN') {
       throw new Error('该账号没有管理员权限')

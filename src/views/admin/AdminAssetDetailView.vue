@@ -10,6 +10,7 @@ import { canPublish } from '../../utils/asset'
 import { assetTypeLabel, categoryLabel, formatBytes, formatDateTime } from '../../utils/format'
 import BaseIcon from '../../components/ui/BaseIcon.vue'
 import BaseModal from '../../components/ui/BaseModal.vue'
+import CopyButton from '../../components/ui/CopyButton.vue'
 import EmptyState from '../../components/ui/EmptyState.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
 import PackageContents from '../../components/ui/PackageContents.vue'
@@ -345,7 +346,10 @@ onMounted(load)
           <dl class="mt-3 divide-y divide-neutral-100">
             <div class="flex items-start justify-between gap-4 py-2.5">
               <dt class="text-caption text-neutral-500 shrink-0">素材 ID</dt>
-              <dd class="text-caption text-neutral-900 text-right font-mono">{{ asset.assetId }}</dd>
+              <dd class="flex items-center justify-end gap-1 text-caption text-neutral-900 font-mono">
+                <span>{{ asset.assetId }}</span>
+                <CopyButton :value="asset.assetId" label="素材编号" />
+              </dd>
             </div>
             <div class="flex items-start justify-between gap-4 py-2.5">
               <dt class="text-caption text-neutral-500 shrink-0">文件大小</dt>
