@@ -74,7 +74,7 @@ async function unpack() {
     asset.value = await adminAssetApi.unpack(asset.value.assetId)
     const count = asset.value.children?.length ?? 0
     if (count > 0) success(`已解包 ${count} 个子素材`)
-    else toastError('ZIP 内没有可提取的图片或视频')
+    else toastError('压缩包内没有可提取的图片或视频')
   } catch (error) {
     if (error instanceof ApiError && error.status === 413) {
       toastError('压缩包内容过多或过大，超出解包限制')

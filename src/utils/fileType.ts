@@ -29,7 +29,7 @@ export const MIME_LABEL: Record<string, string> = {
   'video/quicktime': 'MOV 视频',
   'video/webm': 'WebM 视频',
   'video/x-msvideo': 'AVI 视频',
-  'application/zip': 'ZIP 压缩包',
+  'application/zip': '压缩包',
   'application/pdf': 'PDF 文档',
 }
 

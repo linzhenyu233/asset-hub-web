@@ -109,11 +109,11 @@ const allowedTypes = computed<AssetType[]>(() => {
   return category?.allowedAssetTypes ?? ['IMAGE', 'VIDEO', 'ARCHIVE']
 })
 
-/** ARCHIVE 在素材模式是「ZIP 素材包」，在任务模式才是「活动包」 */
+/** ARCHIVE 在素材模式是「压缩包」，在任务模式才是「活动包」 */
 function typeLabel(type: AssetType): string {
   if (type === 'IMAGE') return '图片'
   if (type === 'VIDEO') return '视频'
-  return mode.value === 'task' ? '活动包' : 'ZIP 素材包'
+  return mode.value === 'task' ? '活动包' : '压缩包'
 }
 
 const allowedTypeNames = computed(() => allowedTypes.value.map((type) => typeLabel(type)).join(' / '))
@@ -172,7 +172,7 @@ function statusClass(item: PickedFile): string {
 
 /**
  * 第二行中间的文件类型：图片/视频显示具体格式（JPEG 图片），
- * ZIP 统一用素材类型名（素材模式「ZIP 素材包」/ 任务模式「活动包」）。
+ * 压缩包统一用素材类型名（素材模式「压缩包」/ 任务模式「活动包」）。
  */
 function fileTypeText(item: PickedFile): string {
   if (item.type === 'ARCHIVE') return typeLabel('ARCHIVE')
@@ -212,7 +212,7 @@ function validateEntry(entry: PickedFile) {
   entry.error = ''
   if (entry.inspecting) return
   if (entry.inspection?.unsupported) {
-    entry.error = `暂不支持 ${mimeLabel(entry.inspection.actual as string)} 格式，请转为 JPG / PNG / WebP / MP4 / MOV / WebM 或 ZIP`
+    entry.error = `暂不支持 ${mimeLabel(entry.inspection.actual as string)} 格式，请转为 JPG / PNG / WebP / MP4 / MOV / WebM 或压缩包`
     return
   }
   if (mode.value === 'material' && !allowedTypes.value.includes(entry.type)) {
@@ -220,7 +220,7 @@ function validateEntry(entry: PickedFile) {
     return
   }
   if (mode.value === 'task' && entry.type !== 'ARCHIVE') {
-    entry.error = '活动包必须是 ZIP 压缩包（.zip），请重新选择文件'
+    entry.error = '活动包必须是压缩包（.zip），请重新选择文件'
   }
 }
 
@@ -257,7 +257,7 @@ function addFiles(list: File[]) {
   const usable = list.filter((file) => !isDirectoryLike(file))
   const skipped = list.length - usable.length
   if (skipped > 0) {
-    noticeMessage.value = `已自动忽略 ${skipped} 个文件夹条目，只处理其中的图片、视频与 ZIP`
+    noticeMessage.value = `已自动忽略 ${skipped} 个文件夹条目，只处理其中的图片、视频与压缩包`
   }
   if (usable.length === 0) {
     noticeMessage.value = '拖入的是文件夹，但没有读到可上传的文件，可以改用「选择文件夹」再试一次'
@@ -265,7 +265,7 @@ function addFiles(list: File[]) {
   }
 
   if (mode.value === 'task' && usable.length > 1) {
-    errorMessage.value = '活动包一次只能上传一个 ZIP，已保留第一个文件'
+    errorMessage.value = '活动包一次只能上传一个压缩包，已保留第一个文件'
   }
 
   const limit = fileLimit.value
@@ -451,7 +451,7 @@ onBeforeUnmount(() => files.value.forEach(releasePreview))
 const largeFiles = computed(() => files.value.filter((item) => item.file.size > LARGE_FILE_BYTES))
 
 function validate(): string {
-  if (files.value.length === 0) return mode.value === 'task' ? '请选择活动包 ZIP 文件' : '请选择要上传的文件'
+  if (files.value.length === 0) return mode.value === 'task' ? '请选择活动包（压缩包）' : '请选择要上传的文件'
   if (inspectingAny.value) return '正在识别文件类型，请稍候'
   const broken = files.value.find((item) => item.error)
   if (broken) return broken.error
@@ -460,7 +460,7 @@ function validate(): string {
     if (files.value.some((item) => !item.name.trim())) return '请为每个素材填写名称'
     if (files.value.length > MAX_MATERIAL_FILES) return `单次最多上传 ${MAX_MATERIAL_FILES} 个素材`
   } else {
-    if (files.value.length > 1) return '活动包一次只能上传一个 ZIP'
+    if (files.value.length > 1) return '活动包一次只能上传一个压缩包'
     if (!task.title.trim()) return '请填写任务标题'
     if (!task.content.trim()) return '请填写任务内容'
   }
@@ -660,7 +660,7 @@ onMounted(() => {
 
 <template>
   <div class="animate-fade-up">
-    <PageHeader title="素材入库" subtitle="上传图片、视频、ZIP 素材包或活动包，文件由 OSS 托管并受控分发" />
+    <PageHeader title="素材入库" subtitle="上传图片、视频、压缩包或活动包，文件由 OSS 托管并受控分发" />
 
     <!-- 模式切换 -->
     <div class="flex items-center gap-2 mb-5">
@@ -911,8 +911,8 @@ onMounted(() => {
               <p class="max-w-[420px] text-caption text-neutral-400">
                 {{
                   mode === 'task'
-                    ? '活动包请压缩为 ZIP，发布后自动解压出包内图片与视频'
-                    : '支持图片、视频与 ZIP 素材包，可多选，也可以把整个文件夹拖进来'
+                    ? '活动包请压成压缩包（.zip），发布后自动解压出包内图片与视频'
+                    : '支持图片、视频与压缩包，可多选，也可以把整个文件夹拖进来'
                 }}
               </p>
               <button
@@ -930,7 +930,7 @@ onMounted(() => {
             <div v-else class="flex flex-wrap items-center justify-center gap-3 text-neutral-500">
               <span class="inline-flex items-center gap-1.5">
                 <BaseIcon name="plus" :size="14" />
-                <span class="text-caption">{{ mode === 'task' ? '重新选择 ZIP' : '继续添加文件' }}</span>
+                <span class="text-caption">{{ mode === 'task' ? '重新选择压缩包' : '继续添加文件' }}</span>
               </span>
               <template v-if="mode === 'material'">
                 <span class="h-3 w-px bg-neutral-200" />
@@ -1117,7 +1117,7 @@ onMounted(() => {
             </li>
             <li class="flex gap-3">
               <span class="w-5 h-5 shrink-0 rounded-pill bg-brand-100 text-brand-600 text-micro font-medium flex items-center justify-center">2</span>
-              <span>上传活动包 ZIP，一次一个；包内放要分发的图片或视频。</span>
+              <span>上传活动包（压缩包），一次一个；包内放要分发的图片或视频。</span>
             </li>
             <li class="flex gap-3">
               <span class="w-5 h-5 shrink-0 rounded-pill bg-brand-100 text-brand-600 text-micro font-medium flex items-center justify-center">3</span>

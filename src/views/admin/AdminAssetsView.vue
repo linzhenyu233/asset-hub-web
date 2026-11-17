@@ -413,7 +413,7 @@ onMounted(() => {
             <option value="">全部类型</option>
             <option value="IMAGE">图片</option>
             <option value="VIDEO">视频</option>
-            <option value="ARCHIVE">ZIP 包</option>
+            <option value="ARCHIVE">压缩包</option>
           </select>
         </div>
 

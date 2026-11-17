@@ -171,7 +171,7 @@ function redirectAfterLogin() {
             </div>
 
             <div>
-              <label class="label" for="password">账号密码</label>
+              <label class="label" for="password">密码</label>
               <div class="relative">
                 <input
                   id="password"

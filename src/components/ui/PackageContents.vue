@@ -151,13 +151,13 @@ async function download(child: Asset) {
         <BaseIcon name="folder" :size="20" />
       </div>
       <p class="mt-2 text-caption font-medium text-neutral-700">
-        {{ canUnpack ? '该 ZIP 包还没有解包' : '暂无包内素材' }}
+        {{ canUnpack ? '该压缩包还没有解包' : '暂无包内素材' }}
       </p>
       <p class="mt-1 text-micro text-neutral-400 leading-[16px]">
         {{
           canUnpack
-            ? '解包会被 ZIP 内的图片、视频提取为独立素材，可单独预览与下载；原始 ZIP 仍保留。'
-            : 'ZIP 内没有可预览的图片或视频，原始压缩包仍可下载。'
+            ? '解包会把压缩包内的图片、视频提取为独立素材，可单独预览与下载；原始压缩包仍保留。'
+            : '压缩包内没有可预览的图片或视频，原始压缩包仍可下载。'
         }}
       </p>
       <button
