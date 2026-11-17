@@ -145,8 +145,8 @@ export const assetApi = {
 
 /* ---------------- 管理员素材管理 ---------------- */
 
-/** 完整素材编号：ZSSJ + 13 位数字（v3.0.0） */
-const ASSET_ID_EXACT = /^ZSSJ\d{13}$/i
+/** 完整素材编号：ZSSJ + 13 位数字，首位不能是 0（v3.0.0 文档 pattern：^ZSSJ[1-9][0-9]{12}$） */
+const ASSET_ID_EXACT = /^ZSSJ[1-9]\d{12}$/i
 
 /**
  * 搜索词恰好是完整素材编号时改用 v3.0.0 的 assetId 精确筛选：

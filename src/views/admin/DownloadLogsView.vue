@@ -2,7 +2,8 @@
 import { computed, onMounted, reactive, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import { adminAssetApi, employeeApi, logApi } from '../../api'
-import type { DownloadLog } from '../../api/types'
+import { ApiError } from '../../api/client'
+import type { AdminAsset, DownloadLog, EmployeeAccount } from '../../api/types'
 import { useBatchPreviews } from '../../composables/useBatchPreviews'
 import { assetTypeLabel, formatBytes, formatDateTime, nextDayStart } from '../../utils/format'
 import PageHeader from '../../components/ui/PageHeader.vue'
@@ -36,26 +37,77 @@ const filters = reactive({
 const employeeFilter = ref<PickerOption | null>(null)
 const assetFilter = ref<PickerOption | null>(null)
 
-function searchEmployees(keyword: string): Promise<PickerOption[]> {
-  return employeeApi.list({ page: 1, pageSize: 20, keyword }).then((res) =>
-    res.items.map((item) => ({
-      id: item.userId,
-      label: item.displayName || '未登记姓名',
-      hint: [item.employeeId ? `工号 ${item.employeeId}` : '', item.phone || '']
-        .filter(Boolean)
-        .join(' · '),
-    })),
-  )
+function toEmployeeOption(item: EmployeeAccount): PickerOption {
+  return {
+    id: item.userId,
+    label: item.displayName || '未登记姓名',
+    hint: [item.employeeId ? `工号 ${item.employeeId}` : '', item.phone || ''].filter(Boolean).join(' · '),
+  }
 }
 
-function searchAssets(keyword: string): Promise<PickerOption[]> {
-  return adminAssetApi.list({ page: 1, pageSize: 20, keyword }).then((res) =>
-    res.items.map((item) => ({
-      id: item.assetId,
-      label: item.name,
-      hint: `${assetTypeLabel(item.assetType)} · ${formatBytes(item.fileSize)}`,
-    })),
-  )
+function toAssetOption(item: AdminAsset): PickerOption {
+  return {
+    id: item.assetId,
+    label: item.name,
+    hint: `${assetTypeLabel(item.assetType)} · ${formatBytes(item.fileSize)}`,
+  }
+}
+
+/** 兜底扫描上限：后端 keyword 恢复前只在这一批里按名称找 */
+const LOCAL_SCAN_LIMIT = 300
+
+function matchText(values: Array<string | null | undefined>, term: string): boolean {
+  const lower = term.toLowerCase()
+  return values.some((value) => (value ?? '').toLowerCase().includes(lower))
+}
+
+/** 素材兜底扫描结果缓存：同一页面上只扫一次，之后输入纯本地过滤 */
+let assetScan: Array<{ option: PickerOption; text: string }> | null = null
+
+async function searchAssetsLocally(term: string): Promise<PickerOption[]> {
+  if (!assetScan) {
+    const scanned: Array<{ option: PickerOption; text: string }> = []
+    for (let page = 1; (page - 1) * 100 < LOCAL_SCAN_LIMIT; page += 1) {
+      const res = await adminAssetApi.list({ page, pageSize: 100 })
+      for (const item of res.items) {
+        scanned.push({
+          option: toAssetOption(item),
+          text: `${item.name} ${item.originalFilename} ${item.assetId}`.toLowerCase(),
+        })
+      }
+      if (res.items.length < 100 || page * 100 >= res.total) break
+    }
+    assetScan = scanned
+  }
+  const lower = term.toLowerCase()
+  return assetScan.filter((entry) => entry.text.includes(lower)).map((entry) => entry.option)
+}
+
+async function searchEmployees(keyword: string): Promise<PickerOption[]> {
+  const term = keyword.trim()
+  try {
+    const res = await employeeApi.list({ page: 1, pageSize: 20, keyword: term })
+    return res.items.map(toEmployeeOption)
+  } catch (error) {
+    // shortcut: 后端 keyword 查询当前返回 500，先扫最近 100 名员工本地过滤；后端修好后不再走到这里
+    if (!(error instanceof ApiError) || error.status < 500) throw error
+    const res = await employeeApi.list({ page: 1, pageSize: 100 })
+    return res.items
+      .filter((item) => matchText([item.displayName, item.employeeId, item.phone], term))
+      .map(toEmployeeOption)
+  }
+}
+
+async function searchAssets(keyword: string): Promise<PickerOption[]> {
+  const term = keyword.trim()
+  try {
+    const res = await adminAssetApi.list({ page: 1, pageSize: 20, keyword: term })
+    return res.items.map(toAssetOption)
+  } catch (error) {
+    // shortcut: 同上，后端 keyword 查询 500 期间只在最近 300 个素材里找
+    if (!(error instanceof ApiError) || error.status < 500) throw error
+    return searchAssetsLocally(term)
+  }
 }
 
 const hasFilter = computed(

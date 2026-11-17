@@ -91,8 +91,24 @@ function thumbClass(child: Asset): string {
   return child.assetType === 'IMAGE' ? 'bg-thumb-rose' : 'bg-thumb-gold'
 }
 
+/**
+ * 父包下架后子素材一起失效（后端也按父包状态判定可见性），
+ * 所以子素材能不能下载 = 父包已上架 且 子素材自己已上架。
+ */
+const packageAvailable = computed(() => props.asset.status === 'PUBLISHED')
+
+function canDownload(child: Asset): boolean {
+  return packageAvailable.value && child.status === 'PUBLISHED'
+}
+
+/** 按钮禁用原因：说明是父包下架还是子素材自己下架 */
+function downloadHint(child: Asset): string {
+  if (!packageAvailable.value) return '素材包已下架，子素材不可下载'
+  return child.status === 'PUBLISHED' ? `下载 ${child.name}` : '已下架'
+}
+
 async function download(child: Asset) {
-  if (downloadingId.value || child.status !== 'PUBLISHED') return
+  if (downloadingId.value || !canDownload(child)) return
   downloadingId.value = child.assetId
   try {
     const result = await assetApi.download(child.assetId, { requestId: makeRequestId('download') })
@@ -211,8 +227,8 @@ async function download(child: Asset) {
           type="button"
           class="w-8 h-8 shrink-0 inline-flex items-center justify-center rounded-control text-neutral-500
             hover:bg-neutral-100 hover:text-brand-600 transition-colors disabled:text-neutral-300 disabled:hover:bg-transparent"
-          :disabled="downloadingId === child.assetId || child.status !== 'PUBLISHED'"
-          :title="child.status === 'PUBLISHED' ? `下载 ${child.name}` : '已下架'"
+          :disabled="downloadingId === child.assetId || !canDownload(child)"
+          :title="downloadHint(child)"
           @click="download(child)"
         >
           <svg
@@ -308,7 +324,8 @@ async function download(child: Asset) {
           <button
             type="button"
             class="btn btn-secondary btn-sm w-full mt-2"
-            :disabled="downloadingId === child.assetId || child.status !== 'PUBLISHED'"
+            :disabled="downloadingId === child.assetId || !canDownload(child)"
+            :title="downloadHint(child)"
             @click="download(child)"
           >
             <svg

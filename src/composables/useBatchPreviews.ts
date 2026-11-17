@@ -126,6 +126,13 @@ export function useBatchPreviews() {
   const loaded = ref<Record<string, boolean>>({})
   /** 任务素材封面定位缓存（同一页面翻页时复用，票据仍每次新申请） */
   const coverCache = new Map<string, CoverHit>()
+  /**
+   * 票据是短时的，过期后缩略图地址就废了：每个素材允许自动重取几次。
+   * 上限是给真坏的素材兜底的，避免无限重试。
+   * shortcut: 整页票据同时过期时会退化成逐张重取（一页 15 个请求），一个会话只发生一次，没做批量重取。
+   */
+  const MAX_TICKET_RETRY = 2
+  const ticketRetry = new Map<string, number>()
   let seq = 0
 
   /** 视频元数据就绪后跳到首帧，浏览器才会真正绘制画面 */
@@ -151,6 +158,9 @@ export function useBatchPreviews() {
     loaded.value = pickRecord(loaded.value, keep)
     for (const id of [...coverCache.keys()]) {
       if (!keep.has(id)) coverCache.delete(id)
+    }
+    for (const id of [...ticketRetry.keys()]) {
+      if (!keep.has(id)) ticketRetry.delete(id)
     }
   }
 
@@ -301,22 +311,36 @@ export function useBatchPreviews() {
     }
   }
 
-  /** 缩略文件加载失败（如票据过期、图片解码失败）时退回图标占位 */
+  /**
+   * 缩略文件加载失败（票据过期、图片解码失败）：先清掉旧地址，再自动重取一次票据，
+   * 不让用户刷新整页；真坏的素材由 MAX_TICKET_RETRY 兜住。
+   */
   function markBroken(id: string): void {
     if (!thumbs.value[id]) return
+    const kind = kinds.value[id] ?? 'IMAGE'
     const nextThumbs = { ...thumbs.value }
     const nextKinds = { ...kinds.value }
     const nextFrames = { ...frames.value }
     const nextLoaded = { ...loaded.value }
+    const nextFailures = { ...failures.value }
     delete nextThumbs[id]
     delete nextKinds[id]
     delete nextFrames[id]
     delete nextLoaded[id]
+    delete nextFailures[id]
     thumbs.value = nextThumbs
     kinds.value = nextKinds
     frames.value = nextFrames
     loaded.value = nextLoaded
-    failures.value = { ...failures.value, [id]: '缩略图加载失败' }
+
+    const used = ticketRetry.get(id) ?? 0
+    if (used < MAX_TICKET_RETRY) {
+      ticketRetry.set(id, used + 1)
+      failures.value = nextFailures
+      void loadOne({ assetId: id, assetType: kind })
+      return
+    }
+    failures.value = { ...nextFailures, [id]: '缩略图加载失败' }
   }
 
   /** 取某素材缩略图的渲染方式，缺省按素材类型推断 */
@@ -354,6 +378,7 @@ export function useBatchPreviews() {
   function reset(): void {
     seq += 1
     coverCache.clear()
+    ticketRetry.clear()
     inflight.clear()
     thumbs.value = {}
     kinds.value = {}
