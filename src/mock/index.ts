@@ -89,11 +89,16 @@ const assetSeeds: AssetSeed[] = [
 
 let assetSeq = 100
 
+/** 素材对外编号（v3.0.0）：ZSSJ + 13 位数字 */
+function toAssetId(seq: number): string {
+  return `ZSSJ${String(1000000000000 + seq)}`
+}
+
 function buildAsset(seed: AssetSeed): AdminAsset {
-  const id = String(++assetSeq)
+  const assetId = toAssetId(++assetSeq)
   const filename = `${seed.name}.${EXT[seed.type]}`
   return {
-    id,
+    assetId,
     name: seed.name,
     assetType: seed.type,
     categoryCode: seed.category,
@@ -108,9 +113,9 @@ function buildAsset(seed: AssetSeed): AdminAsset {
     fileLocator: {
       bucket: 'shining-house-assets',
       corpId: 'ding-corp-7f2a',
-      fileId: `oss-${id}-${seed.type.toLowerCase()}`,
+      fileId: `oss-${assetId}-${seed.type.toLowerCase()}`,
       spaceId: 'space-brand-01',
-      objectKey: `assets/${seed.category.toLowerCase()}/${id}/${filename}`,
+      objectKey: `assets/${seed.category.toLowerCase()}/${assetId}/${filename}`,
     },
   }
 }
@@ -130,10 +135,10 @@ function attachPackageChildren(pkg: AdminAsset) {
     { suffix: '-门店短视频 15s.mp4', type: 'VIDEO', size: 12_600_000 },
   ]
 
-  pkg.children = seeds.map((seed, index) => {
+  pkg.children = seeds.map((seed) => {
     const filename = `${pkg.name}${seed.suffix}`
     const child: Asset = {
-      id: `${pkg.id}-${index + 1}`,
+      assetId: toAssetId(++assetSeq),
       name: filename,
       assetType: seed.type,
       categoryCode: pkg.categoryCode,
@@ -143,9 +148,9 @@ function attachPackageChildren(pkg: AdminAsset) {
       originalFilename: filename,
       publishedAt: pkg.publishedAt,
       taskId: '',
-      parentId: pkg.id,
+      parentId: pkg.assetId,
     }
-    packageChildren.set(child.id, child)
+    packageChildren.set(child.assetId, child)
     return child
   })
 
@@ -262,14 +267,14 @@ const downloadLogs: DownloadLog[] = claimPeople.map((person, index) => {
   const asset = assets[index % 8]
   return {
     id: String(++downloadSeq),
-    assetId: asset.id,
+    assetId: asset.assetId,
     assetName: asset.name,
     createdAt: `2026-10-19 ${String(9 + index).padStart(2, '0')}:15:00`,
     displayName: person.name,
     requestId: `download:demo-${1000 + index}`,
     storageProvider: 'OSS',
     storeName: person.store,
-    userId: String(200 + index),
+    userId: `EMP${String(200 + index).padStart(8, '0')}`,
   }
 })
 
@@ -284,12 +289,12 @@ const operations: Operation[] = assets.slice(0, 8).map((asset, index) => {
     beforeState: action === 'UPLOAD' ? '' : 'PUBLISHED',
     fileLocatorSnapshot: asset.fileLocator,
     operatedAt: `2026-10-${String(10 + index).padStart(2, '0')} 15:30:00`,
-    operatorId: '1',
+    operatorId: 'ADMIN000001',
     operatorSnapshot: '预览管理员',
     requestId: `op:demo-${2000 + index}`,
     result: index === 7 ? 'FAILED' : 'SUCCESS',
     storageProvider: 'OSS',
-    targetId: asset.id,
+    targetId: asset.assetId,
     targetNameSnapshot: asset.name,
     targetType: 'ASSET',
     ...(index === 7 ? { errorCode: 'OSS_TIMEOUT', errorMessage: '存储服务响应超时，请稍后重试' } : {}),
@@ -305,7 +310,7 @@ operations.push(
     beforeState: '',
     fileLocatorSnapshot: {},
     operatedAt: '2026-10-25 10:12:00',
-    operatorId: '1',
+    operatorId: 'ADMIN000001',
     operatorSnapshot: '预览管理员',
     requestId: 'op:demo-3001',
     result: 'SUCCESS',
@@ -321,12 +326,12 @@ operations.push(
     beforeState: '',
     fileLocatorSnapshot: {},
     operatedAt: '2026-10-26 09:40:00',
-    operatorId: '1',
+    operatorId: 'ADMIN000001',
     operatorSnapshot: '预览管理员',
     requestId: 'op:demo-3002',
     result: 'SUCCESS',
     storageProvider: 'OSS',
-    targetId: '2',
+    targetId: 'ADMIN000002',
     targetNameSnapshot: 'lindongmei',
     targetType: 'ADMIN_ACCOUNT',
   } satisfies Operation,
@@ -342,7 +347,7 @@ const sessions = new Map<string, Session>()
 let accountSeq = 2
 const mockAccounts: AdminAccount[] = [
   {
-    id: '2',
+    userId: 'ADMIN000002',
     username: 'ops',
     displayName: '陈昊',
     status: 'ACTIVE',
@@ -355,7 +360,7 @@ const mockAccounts: AdminAccount[] = [
 /** 已建档员工演示数据：故意包含未登记姓名/工号/手机号、从未登录、待改密等边界情况 */
 const mockEmployees: EmployeeAccount[] = [
   {
-    id: '1',
+    userId: 'EMP00000001',
     employeeId: '300465',
     displayName: '陈晓雯',
     phone: '13711112222',
@@ -364,7 +369,7 @@ const mockEmployees: EmployeeAccount[] = [
     lastLoginAt: '2026-10-19 09:20:00',
   },
   {
-    id: '2',
+    userId: 'EMP00000002',
     employeeId: '300512',
     displayName: '李文静',
     phone: '13800138000',
@@ -373,7 +378,7 @@ const mockEmployees: EmployeeAccount[] = [
     lastLoginAt: '2026-10-18 15:05:00',
   },
   {
-    id: '3',
+    userId: 'EMP00000003',
     employeeId: '300778',
     displayName: '王海涛',
     phone: '13566668888',
@@ -382,7 +387,7 @@ const mockEmployees: EmployeeAccount[] = [
     lastLoginAt: '2026-09-30 11:40:00',
   },
   {
-    id: '4',
+    userId: 'EMP00000004',
     employeeId: null,
     displayName: '张敏',
     phone: null,
@@ -456,7 +461,7 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
     if (segments.length === 2 && segments[1] === 'previews' && method === 'POST') {
       const ids = Array.isArray(body.assetIds) ? (body.assetIds as unknown[]).map((value) => str(value)) : []
       const items = ids.map((id) => {
-        const asset = assets.find((item) => item.id === id && item.status === 'PUBLISHED')
+        const asset = assets.find((item) => item.assetId === id && item.status === 'PUBLISHED')
         if (!asset) {
           return { assetId: id, error: { code: 'ASSET_NOT_AVAILABLE', message: '素材不存在或已下架' } }
         }
@@ -481,30 +486,30 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
     const id = segments[1]
     if (segments.length === 2 && method === 'GET') {
       const asset =
-        assets.find((item) => item.id === id && item.status === 'PUBLISHED') ?? packageChildren.get(id)
+        assets.find((item) => item.assetId === id && item.status === 'PUBLISHED') ?? packageChildren.get(id)
       if (!asset) throw new Error('素材不存在或已下架')
       return asset as unknown as T
     }
 
     if (segments.length === 3 && segments[2] === 'download' && method === 'POST') {
       const asset =
-        assets.find((item) => item.id === id && item.status === 'PUBLISHED') ?? packageChildren.get(id)
+        assets.find((item) => item.assetId === id && item.status === 'PUBLISHED') ?? packageChildren.get(id)
       if (!asset) throw new Error('素材不存在或已下架')
       const log: DownloadLog = {
         id: String(++downloadSeq),
-        assetId: asset.id,
+        assetId: asset.assetId,
         assetName: asset.name,
         createdAt: NOW,
         displayName: mockEmployeeUser.displayName,
         requestId: str(body.requestId) || `download:${Date.now()}`,
         storageProvider: (asset as Partial<AdminAsset>).storageProvider ?? 'OSS',
         storeName: mockEmployeeUser.storeName,
-        userId: mockEmployeeUser.id,
+        userId: mockEmployeeUser.userId,
       }
       downloadLogs.unshift(log)
       const result: DownloadResult = {
         downloadMode: 'PROXY',
-        url: `/api/files/demo-${asset.id}`,
+        url: `/api/files/demo-${asset.assetId}`,
         expiresAt: '2026-10-21 10:05:00',
         fileSize: asset.fileSize,
         filename: asset.originalFilename,
@@ -515,7 +520,7 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
 
     if (segments.length === 3 && segments[2] === 'preview' && method === 'POST') {
       const asset =
-        assets.find((item) => item.id === id && item.status === 'PUBLISHED') ?? packageChildren.get(id)
+        assets.find((item) => item.assetId === id && item.status === 'PUBLISHED') ?? packageChildren.get(id)
       if (!asset) throw new Error('素材不存在或已下架')
       if (asset.assetType === 'ARCHIVE') throw new Error('该文件类型不支持在线预览')
       return previewPayload(asset) as unknown as T
@@ -553,17 +558,26 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
         const assetType = str(query.assetType)
         const status = str(query.status)
         const provider = str(query.storageProvider)
+        const exactAssetId = str(query.assetId)
         if (category) list = list.filter((item) => item.categoryCode === category)
         if (assetType) list = list.filter((item) => item.assetType === assetType)
         if (status) list = list.filter((item) => item.status === status)
         if (provider) list = list.filter((item) => item.storageProvider === provider)
-        if (keyword) list = list.filter((item) => includesKeyword(item.name, keyword) || includesKeyword(item.originalFilename, keyword))
+        if (exactAssetId) list = list.filter((item) => item.assetId === exactAssetId)
+        if (keyword) {
+          list = list.filter(
+            (item) =>
+              includesKeyword(item.name, keyword) ||
+              includesKeyword(item.originalFilename, keyword) ||
+              includesKeyword(item.assetId, keyword),
+          )
+        }
         return paginate(list, page, pageSize) as unknown as T
       }
 
       if (segments.length === 2 && method === 'POST') {
         const name = str(body.name) || '未命名素材'
-        const id = String(++assetSeq)
+        const assetId = toAssetId(++assetSeq)
         // 素材类型 / 分类 / MIME 沿用上传会话，ZIP 素材包才能正确落成 ARCHIVE
         const session = sessions.get(str(body.uploadSessionId))
         const assetType = (session?.assetType ?? 'IMAGE') as AdminAsset['assetType']
@@ -571,7 +585,7 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
         const mimeType = session?.mimeType || MIME[assetType] || 'image/jpeg'
         const ext = mimeType === 'application/zip' ? '.zip' : mimeType.startsWith('video/') ? '.mp4' : '.jpg'
         const created: AdminAsset = {
-          id,
+          assetId,
           name,
           assetType,
           categoryCode,
@@ -585,15 +599,15 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
           fileLocator: {
             bucket: 'shining-house-assets',
             corpId: 'ding-corp-7f2a',
-            fileId: `oss-${id}`,
+            fileId: `oss-${assetId}`,
             spaceId: 'space-brand-01',
-            objectKey: `assets/${assetType.toLowerCase()}/${id}/${name}${ext}`,
+            objectKey: `assets/${assetType.toLowerCase()}/${assetId}/${name}${ext}`,
           },
         }
         assets.unshift(created)
         // v2.11.0：ZIP 素材包入库时后端自动解压出包内图片、视频
         if (created.assetType === 'ARCHIVE') attachPackageChildren(created)
-        const result: AssetResult = { assetId: id, status: 'DRAFT' }
+        const result: AssetResult = { assetId, status: 'DRAFT' }
         return result as unknown as T
       }
 
@@ -601,7 +615,7 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
         const ids = Array.isArray(body.assetIds) ? (body.assetIds as unknown[]).map((value) => str(value)) : []
         const items = ids.map((id) => {
           // 任务素材内的子素材也可预览（列表页用它做任务素材封面）
-          const asset = assets.find((item) => item.id === id) ?? packageChildren.get(id)
+          const asset = assets.find((item) => item.assetId === id) ?? packageChildren.get(id)
           if (!asset) return { assetId: id, error: { code: 'NOT_FOUND', message: '素材不存在' } }
           if (asset.assetType === 'ARCHIVE') {
             return { assetId: id, error: { code: 'PREVIEW_UNSUPPORTED', message: '该文件类型不支持在线预览' } }
@@ -615,7 +629,7 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
         const ids = Array.isArray(body.assetIds) ? (body.assetIds as unknown[]).map((value) => str(value)) : []
         const unique = [...new Set(ids)]
         const items = unique.map((id) => {
-          const index = assets.findIndex((item) => item.id === id)
+          const index = assets.findIndex((item) => item.assetId === id)
           if (index < 0) return { assetId: id, error: { code: 'NOT_FOUND', message: '素材不存在' } }
           if (assets[index].taskId) {
             return {
@@ -637,13 +651,13 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
 
       const id = segments[2]
       if (segments.length === 3 && method === 'GET') {
-        const asset = assets.find((item) => item.id === id) ?? packageChildren.get(id)
+        const asset = assets.find((item) => item.assetId === id) ?? packageChildren.get(id)
         if (!asset) throw new Error('素材不存在')
         return asset as unknown as T
       }
 
       if (segments.length === 3 && method === 'DELETE') {
-        const index = assets.findIndex((item) => item.id === id)
+        const index = assets.findIndex((item) => item.assetId === id)
         if (index < 0) throw new Error('素材不存在')
         if (assets[index].taskId) throw new Error('素材已关联任务，请先保留任务素材并使用下架操作')
         assets.splice(index, 1)
@@ -651,7 +665,7 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
       }
 
       if (segments.length === 4 && method === 'POST') {
-        const asset = assets.find((item) => item.id === id) ?? packageChildren.get(id)
+        const asset = assets.find((item) => item.assetId === id) ?? packageChildren.get(id)
         if (!asset) throw new Error('素材不存在')
         const action = segments[3]
         if (action === 'publish') {
@@ -670,7 +684,7 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
         }
         if (action === 'unpack') {
           // 解包只针对顶层任务素材，子素材不会出现在 assets 里
-          const pkg = assets.find((item) => item.id === id)
+          const pkg = assets.find((item) => item.assetId === id)
           if (!pkg || pkg.assetType !== 'ARCHIVE') throw new Error('仅任务素材支持解包')
           if ((pkg.children?.length ?? 0) === 0) attachPackageChildren(pkg)
           return pkg as unknown as T
@@ -690,7 +704,7 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
           throw new Error('该登录账号已存在，请更换账号')
         }
         const created: AdminAccount = {
-          id: String(++accountSeq),
+          userId: `ADMIN${String(++accountSeq).padStart(6, '0')}`,
           username,
           displayName: str(body.displayName) || username,
           status: 'ACTIVE',
@@ -701,7 +715,7 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
       }
 
       if (segments.length === 4 && segments[3] === 'status' && method === 'PUT') {
-        const account = mockAccounts.find((item) => item.id === segments[2])
+        const account = mockAccounts.find((item) => item.userId === segments[2])
         if (!account) throw new Error('账号不存在')
         account.status = str(body.status) === 'DISABLED' ? 'DISABLED' : ('ACTIVE' as AdminAccountStatus)
         return account as unknown as T
@@ -715,7 +729,7 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
         let list = [...mockEmployees]
         if (keyword) {
           list = list.filter((item) =>
-            [item.displayName, item.employeeId, item.phone].some(
+            [item.userId, item.displayName, item.employeeId, item.phone].some(
               (value) => Boolean(value) && includesKeyword(value as string, keyword),
             ),
           )
@@ -725,13 +739,13 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
       }
 
       if (segments.length === 3 && method === 'GET') {
-        const employee = mockEmployees.find((item) => item.id === segments[2])
+        const employee = mockEmployees.find((item) => item.userId === segments[2])
         if (!employee) throw new Error('员工不存在')
         return employee as unknown as T
       }
 
       if (segments.length === 4 && segments[3] === 'status' && method === 'PUT') {
-        const employee = mockEmployees.find((item) => item.id === segments[2])
+        const employee = mockEmployees.find((item) => item.userId === segments[2])
         if (!employee) throw new Error('员工不存在')
         employee.status = str(body.status) === 'DISABLED' ? 'DISABLED' : 'ACTIVE'
         return employee as unknown as T
@@ -804,7 +818,7 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
         taskAssets.unshift(assets[0])
         const result: TaskResult = {
           taskId: id,
-          activityAssetId: assets[0].id,
+          activityAssetId: assets[0].assetId,
           publishedAt: NOW,
           deadlineAt,
           expired: false,

@@ -61,7 +61,7 @@ const childSamples = computed(() => (task.value?.activityAsset.children ?? []).s
 const extraChildren = computed(() => Math.max(0, childCount.value - childSamples.value.length))
 
 function ensureThumb(child: Asset) {
-  if (thumbs.value[child.id]) return
+  if (thumbs.value[child.assetId]) return
   if (child.assetType === 'VIDEO' || child.fileSize > THUMB_AUTO_MAX_BYTES) {
     void loadThumbOne(child)
   }
@@ -352,30 +352,30 @@ onMounted(() => {
             :class="task.activityAsset.assetType === 'IMAGE' ? 'bg-thumb-rose' : 'bg-thumb-gold'"
           >
             <BaseIcon
-              v-if="showPlaceholder(task.activityAsset.id, kindOf(task.activityAsset))"
+              v-if="showPlaceholder(task.activityAsset.assetId, kindOf(task.activityAsset))"
               :name="task.activityAsset.assetType === 'IMAGE' ? 'image' : task.activityAsset.assetType === 'VIDEO' ? 'video' : 'folder'"
               :size="40"
               :stroke-width="1.2"
             />
             <img
-              v-if="thumbs[task.activityAsset.id] && kindOf(task.activityAsset) === 'IMAGE'"
-              :src="thumbs[task.activityAsset.id]"
+              v-if="thumbs[task.activityAsset.assetId] && kindOf(task.activityAsset) === 'IMAGE'"
+              :src="thumbs[task.activityAsset.assetId]"
               :alt="task.activityAsset.name"
               class="absolute inset-0 w-full h-full object-contain bg-white"
-              :class="isLoaded(task.activityAsset.id) ? 'animate-fade-in' : 'opacity-0'"
-              @load="markLoaded(task.activityAsset.id)"
-              @error="markBroken(task.activityAsset.id)"
+              :class="isLoaded(task.activityAsset.assetId) ? 'animate-fade-in' : 'opacity-0'"
+              @load="markLoaded(task.activityAsset.assetId)"
+              @error="markBroken(task.activityAsset.assetId)"
             />
             <video
-              v-else-if="thumbs[task.activityAsset.id] && kindOf(task.activityAsset) === 'VIDEO'"
-              :src="thumbs[task.activityAsset.id]"
+              v-else-if="thumbs[task.activityAsset.assetId] && kindOf(task.activityAsset) === 'VIDEO'"
+              :src="thumbs[task.activityAsset.assetId]"
               class="absolute inset-0 w-full h-full object-cover bg-neutral-900 transition-opacity duration-200"
-              :class="frames[task.activityAsset.id] ? 'opacity-100' : 'opacity-0'"
+              :class="frames[task.activityAsset.assetId] ? 'opacity-100' : 'opacity-0'"
               muted
               playsinline
               preload="metadata"
-              @loadeddata="revealFrame(task.activityAsset.id, $event)"
-              @error="markBroken(task.activityAsset.id)"
+              @loadeddata="revealFrame(task.activityAsset.assetId, $event)"
+              @error="markBroken(task.activityAsset.assetId)"
             />
           </div>
           <div class="p-3">
@@ -387,7 +387,7 @@ onMounted(() => {
               <span class="badge" :class="task.activityAsset.available ? 'badge-claimed' : 'badge-offline'">
                 {{ task.activityAsset.available ? '可下载' : '已下架' }}
               </span>
-              <span class="badge badge-neutral">#{{ task.activityAsset.id }}</span>
+              <span class="badge badge-neutral">#{{ task.activityAsset.assetId }}</span>
               <span v-if="childCount > 0" class="badge badge-brand">包内 {{ childCount }} 个素材</span>
             </div>
           </div>
@@ -402,41 +402,41 @@ onMounted(() => {
           <div class="mt-2 grid grid-cols-3 gap-2">
             <button
               v-for="child in childSamples"
-              :key="child.id"
+              :key="child.assetId"
               type="button"
               class="relative aspect-[4/3] overflow-hidden rounded-sm border border-neutral-100 bg-neutral-25
                 flex items-center justify-center transition-colors hover:border-brand-200"
               :title="`查看 ${child.name}`"
-              @click="router.push(`/admin/assets/${child.id}`)"
+              @click="router.push(`/admin/assets/${child.assetId}`)"
               @mouseenter="ensureThumb(child)"
             >
               <BaseIcon
-                v-if="showPlaceholder(child.id, kindOf(child))"
+                v-if="showPlaceholder(child.assetId, kindOf(child))"
                 :name="child.assetType === 'VIDEO' ? 'video' : 'image'"
                 :size="16"
                 class="text-neutral-300"
               />
               <img
-                v-if="thumbs[child.id] && kindOf(child) === 'IMAGE'"
-                :src="thumbs[child.id]"
+                v-if="thumbs[child.assetId] && kindOf(child) === 'IMAGE'"
+                :src="thumbs[child.assetId]"
                 :alt="child.name"
                 class="absolute inset-0 w-full h-full object-cover bg-white"
-                :class="isLoaded(child.id) ? 'animate-fade-in' : 'opacity-0'"
+                :class="isLoaded(child.assetId) ? 'animate-fade-in' : 'opacity-0'"
                 loading="lazy"
                 decoding="async"
-                @load="markLoaded(child.id)"
-                @error="markBroken(child.id)"
+                @load="markLoaded(child.assetId)"
+                @error="markBroken(child.assetId)"
               />
               <video
-                v-else-if="thumbs[child.id] && kindOf(child) === 'VIDEO'"
-                :src="thumbs[child.id]"
+                v-else-if="thumbs[child.assetId] && kindOf(child) === 'VIDEO'"
+                :src="thumbs[child.assetId]"
                 class="absolute inset-0 w-full h-full object-cover bg-neutral-900 transition-opacity duration-200"
-                :class="frames[child.id] ? 'opacity-100' : 'opacity-0'"
+                :class="frames[child.assetId] ? 'opacity-100' : 'opacity-0'"
                 muted
                 playsinline
                 preload="metadata"
-                @loadeddata="revealFrame(child.id, $event)"
-                @error="markBroken(child.id)"
+                @loadeddata="revealFrame(child.assetId, $event)"
+                @error="markBroken(child.assetId)"
               />
               <span
                 v-if="child.assetType === 'VIDEO'"
@@ -454,7 +454,7 @@ onMounted(() => {
         <button
           type="button"
           class="btn btn-secondary w-full mt-3"
-          @click="router.push(`/admin/assets/${task.activityAsset.id}`)"
+          @click="router.push(`/admin/assets/${task.activityAsset.assetId}`)"
         >
           <BaseIcon name="external" :size="16" />
           管理包内素材

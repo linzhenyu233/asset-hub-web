@@ -75,7 +75,7 @@ async function download() {
   if (!asset.value || downloading.value || !isVisibleToEmployee.value) return
   downloading.value = true
   try {
-    const result = await assetApi.download(asset.value.id, {
+    const result = await assetApi.download(asset.value.assetId, {
       requestId: makeRequestId('download'),
     })
     triggerDownload(result.url, result.filename)
@@ -105,7 +105,7 @@ onMounted(load)
         <button
           type="button"
           class="btn btn-secondary btn-sm"
-          @click="router.push(asset ? `/admin/assets/${asset.id}` : '/admin/assets')"
+          @click="router.push(asset ? `/admin/assets/${asset.assetId}` : '/admin/assets')"
         >
           <BaseIcon name="arrow-left" :size="16" />
           返回管理端
@@ -264,7 +264,7 @@ onMounted(load)
     <AssetPreviewModal
       v-if="asset"
       :open="previewOpen"
-      :asset-id="asset.id"
+      :asset-id="asset.assetId"
       :title="asset.name"
       :preview="preview"
       admin

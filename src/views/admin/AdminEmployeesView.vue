@@ -115,7 +115,7 @@ async function submitToggle() {
   toggle.submitting = true
   const switching = toggle.employee
   try {
-    await employeeApi.setStatus(switching.id, toggle.nextStatus)
+    await employeeApi.setStatus(switching.userId, toggle.nextStatus)
     success(toggle.nextStatus === 'ACTIVE' ? '员工已启用' : '员工已停用')
     toggle.open = false
     await load()
@@ -164,7 +164,7 @@ onMounted(load)
               v-model="keyword"
               class="input pl-9"
               type="search"
-              placeholder="工号 / 姓名 / 手机号 / 门店"
+              placeholder="ID / 工号 / 姓名 / 手机号 / 门店"
               aria-label="搜索员工"
             />
           </div>
@@ -243,7 +243,7 @@ onMounted(load)
             </tr>
           </thead>
           <tbody>
-            <tr v-for="employee in items" :key="employee.id">
+            <tr v-for="employee in items" :key="employee.userId">
               <td>
                 <div class="flex items-center gap-3 min-w-0">
                   <span
@@ -253,6 +253,7 @@ onMounted(load)
                   </span>
                   <div class="min-w-0">
                     <p class="text-body font-medium text-neutral-900 truncate">{{ displayNameOf(employee) }}</p>
+                    <p class="text-micro text-neutral-400 font-mono truncate">#{{ employee.userId }}</p>
                   </div>
                 </div>
               </td>

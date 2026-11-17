@@ -23,7 +23,7 @@ function readPreviewUser(): User | null {
     const parsed = JSON.parse(raw) as User
     if (
       parsed &&
-      typeof parsed.id === 'string' &&
+      typeof parsed.userId === 'string' &&
       (parsed.role === 'ADMIN' || parsed.role === 'EMPLOYEE' || parsed.role === 'REVIEW')
     ) {
       return parsed

@@ -39,7 +39,7 @@ const assetFilter = ref<PickerOption | null>(null)
 function searchEmployees(keyword: string): Promise<PickerOption[]> {
   return employeeApi.list({ page: 1, pageSize: 20, keyword }).then((res) =>
     res.items.map((item) => ({
-      id: item.id,
+      id: item.userId,
       label: item.displayName || '未登记姓名',
       hint: [item.employeeId ? `工号 ${item.employeeId}` : '', item.phone || '']
         .filter(Boolean)
@@ -51,7 +51,7 @@ function searchEmployees(keyword: string): Promise<PickerOption[]> {
 function searchAssets(keyword: string): Promise<PickerOption[]> {
   return adminAssetApi.list({ page: 1, pageSize: 20, keyword }).then((res) =>
     res.items.map((item) => ({
-      id: item.id,
+      id: item.assetId,
       label: item.name,
       hint: `${assetTypeLabel(item.assetType)} · ${formatBytes(item.fileSize)}`,
     })),
@@ -138,7 +138,7 @@ const {
 } = useBatchPreviews()
 
 function loadAggregateThumbs() {
-  const targets = pagedGroups.value.map((group) => ({ id: group.assetId, assetType: 'IMAGE' }))
+  const targets = pagedGroups.value.map((group) => ({ assetId: group.assetId, assetType: 'IMAGE' }))
   if (targets.length === 0) {
     resetThumbs()
     return
@@ -149,7 +149,7 @@ function loadAggregateThumbs() {
 
 /** 聚合行缩略图类型（真实类型由 mimeType 纠正） */
 function groupKind(assetId: string) {
-  return kindOf({ id: assetId, assetType: 'IMAGE' })
+  return kindOf({ assetId, assetType: 'IMAGE' })
 }
 
 /** 按页取到 AGGREGATE_LIMIT（或取满 total）：一次请求会被后端截到 100 条，统计会少 */
@@ -333,7 +333,7 @@ onMounted(load)
             v-model="employeeFilter"
             :search="searchEmployees"
             aria-label="按员工筛选"
-            placeholder="按姓名 / 工号 / 手机号搜索"
+            placeholder="按 ID / 姓名 / 工号 / 手机号搜索"
             empty-hint="输入姓名 / 工号 / 手机号后显示候选"
           />
         </div>
@@ -343,7 +343,7 @@ onMounted(load)
             v-model="assetFilter"
             :search="searchAssets"
             aria-label="按素材筛选"
-            placeholder="按素材名称搜索"
+            placeholder="按名称 / 素材 ID 搜索"
             empty-hint="输入素材名称后显示候选"
           />
         </div>

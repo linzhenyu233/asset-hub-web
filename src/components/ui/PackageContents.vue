@@ -50,14 +50,14 @@ const {
 } = useBatchPreviews()
 
 function ensureThumb(child: Asset) {
-  if (thumbs.value[child.id]) return
+  if (thumbs.value[child.assetId]) return
   if (child.assetType === 'VIDEO' || child.fileSize > THUMB_AUTO_MAX_BYTES) {
     void loadThumbOne(child)
   }
 }
 
 watch(
-  () => children.value.map((child) => child.id).join(','),
+  () => children.value.map((child) => child.assetId).join(','),
   () => {
     if (!props.showThumbnails || children.value.length === 0) {
       resetThumbs()
@@ -77,7 +77,7 @@ const previewTitle = ref('')
 function openPreview(child: Asset) {
   if (!props.previewable || child.status !== 'PUBLISHED') return
   previewTitle.value = child.name
-  previewId.value = child.id
+  previewId.value = child.assetId
   previewOpen.value = true
 }
 
@@ -93,9 +93,9 @@ function thumbClass(child: Asset): string {
 
 async function download(child: Asset) {
   if (downloadingId.value || child.status !== 'PUBLISHED') return
-  downloadingId.value = child.id
+  downloadingId.value = child.assetId
   try {
-    const result = await assetApi.download(child.id, { requestId: makeRequestId('download') })
+    const result = await assetApi.download(child.assetId, { requestId: makeRequestId('download') })
     triggerDownload(result.url, result.filename)
     success('已开始下载')
   } catch (error) {
@@ -160,7 +160,7 @@ async function download(child: Asset) {
     <div v-else-if="compact" class="mt-3 space-y-2">
       <div
         v-for="child in children"
-        :key="child.id"
+        :key="child.assetId"
         class="flex items-center gap-2 rounded-control border border-neutral-100 px-2.5 py-2"
         @mouseenter="ensureThumb(child)"
       >
@@ -168,29 +168,29 @@ async function download(child: Asset) {
           class="relative w-8 h-8 shrink-0 rounded-sm overflow-hidden flex items-center justify-center text-white/90"
           :class="thumbClass(child)"
         >
-          <BaseIcon v-if="showPlaceholder(child.id, kindOf(child))" :name="iconOf(child)" :size="16" />
+          <BaseIcon v-if="showPlaceholder(child.assetId, kindOf(child))" :name="iconOf(child)" :size="16" />
           <img
-            v-if="thumbs[child.id] && kindOf(child) === 'IMAGE'"
-            :src="thumbs[child.id]"
+            v-if="thumbs[child.assetId] && kindOf(child) === 'IMAGE'"
+            :src="thumbs[child.assetId]"
             :alt="child.name"
             class="absolute inset-0 w-full h-full object-cover bg-white"
-            :class="isLoaded(child.id) ? 'animate-fade-in' : 'opacity-0'"
+            :class="isLoaded(child.assetId) ? 'animate-fade-in' : 'opacity-0'"
             loading="lazy"
             decoding="async"
             fetchpriority="low"
-            @load="markLoaded(child.id)"
-            @error="markBroken(child.id)"
+            @load="markLoaded(child.assetId)"
+            @error="markBroken(child.assetId)"
           />
           <video
-            v-else-if="thumbs[child.id] && kindOf(child) === 'VIDEO'"
-            :src="thumbs[child.id]"
+            v-else-if="thumbs[child.assetId] && kindOf(child) === 'VIDEO'"
+            :src="thumbs[child.assetId]"
             class="absolute inset-0 w-full h-full object-cover bg-neutral-900 transition-opacity duration-200"
-            :class="frames[child.id] ? 'opacity-100' : 'opacity-0'"
+            :class="frames[child.assetId] ? 'opacity-100' : 'opacity-0'"
             muted
             playsinline
             preload="metadata"
-            @loadeddata="revealFrame(child.id, $event)"
-            @error="markBroken(child.id)"
+            @loadeddata="revealFrame(child.assetId, $event)"
+            @error="markBroken(child.assetId)"
           />
           <button
             v-if="previewable"
@@ -211,12 +211,12 @@ async function download(child: Asset) {
           type="button"
           class="w-8 h-8 shrink-0 inline-flex items-center justify-center rounded-control text-neutral-500
             hover:bg-neutral-100 hover:text-brand-600 transition-colors disabled:text-neutral-300 disabled:hover:bg-transparent"
-          :disabled="downloadingId === child.id || child.status !== 'PUBLISHED'"
+          :disabled="downloadingId === child.assetId || child.status !== 'PUBLISHED'"
           :title="child.status === 'PUBLISHED' ? `下载 ${child.name}` : '已下架'"
           @click="download(child)"
         >
           <svg
-            v-if="downloadingId === child.id"
+            v-if="downloadingId === child.assetId"
             class="animate-spin"
             width="16"
             height="16"
@@ -237,7 +237,7 @@ async function download(child: Asset) {
     <div v-else class="mt-4 grid gap-3 grid-cols-2 sm:grid-cols-3 xl:grid-cols-4">
       <div
         v-for="child in children"
-        :key="child.id"
+        :key="child.assetId"
         class="rounded-card border border-neutral-100 overflow-hidden bg-neutral-0"
         @mouseenter="ensureThumb(child)"
       >
@@ -247,34 +247,34 @@ async function download(child: Asset) {
         >
           <!-- 占位图标垫在图片下面，图片淡入时自然盖住它，不会出现空白帧 -->
           <BaseIcon
-            v-if="showPlaceholder(child.id, kindOf(child))"
+            v-if="showPlaceholder(child.assetId, kindOf(child))"
             :name="iconOf(child)"
             :size="28"
             :stroke-width="1.2"
             class="text-white/85"
           />
           <img
-            v-if="thumbs[child.id] && kindOf(child) === 'IMAGE'"
-            :src="thumbs[child.id]"
+            v-if="thumbs[child.assetId] && kindOf(child) === 'IMAGE'"
+            :src="thumbs[child.assetId]"
             :alt="child.name"
             class="absolute inset-0 w-full h-full object-contain bg-white"
-            :class="isLoaded(child.id) ? 'animate-fade-in' : 'opacity-0'"
+            :class="isLoaded(child.assetId) ? 'animate-fade-in' : 'opacity-0'"
             loading="lazy"
             decoding="async"
             fetchpriority="low"
-            @load="markLoaded(child.id)"
-            @error="markBroken(child.id)"
+            @load="markLoaded(child.assetId)"
+            @error="markBroken(child.assetId)"
           />
           <video
-            v-else-if="thumbs[child.id] && kindOf(child) === 'VIDEO'"
-            :src="thumbs[child.id]"
+            v-else-if="thumbs[child.assetId] && kindOf(child) === 'VIDEO'"
+            :src="thumbs[child.assetId]"
             class="absolute inset-0 w-full h-full object-cover bg-neutral-900 transition-opacity duration-200"
-            :class="frames[child.id] ? 'opacity-100' : 'opacity-0'"
+            :class="frames[child.assetId] ? 'opacity-100' : 'opacity-0'"
             muted
             playsinline
             preload="metadata"
-            @loadeddata="revealFrame(child.id, $event)"
-            @error="markBroken(child.id)"
+            @loadeddata="revealFrame(child.assetId, $event)"
+            @error="markBroken(child.assetId)"
           />
           <span
             v-if="child.assetType === 'VIDEO'"
@@ -308,11 +308,11 @@ async function download(child: Asset) {
           <button
             type="button"
             class="btn btn-secondary btn-sm w-full mt-2"
-            :disabled="downloadingId === child.id || child.status !== 'PUBLISHED'"
+            :disabled="downloadingId === child.assetId || child.status !== 'PUBLISHED'"
             @click="download(child)"
           >
             <svg
-              v-if="downloadingId === child.id"
+              v-if="downloadingId === child.assetId"
               class="animate-spin"
               width="14"
               height="14"

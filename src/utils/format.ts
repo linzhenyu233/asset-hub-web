@@ -61,7 +61,7 @@ export function actionLabel(value: string): string {
 }
 
 /**
- * 操作日志的对象类型（后端枚举 ASSET / TASK / UPLOAD_SESSION / ADMIN_ACCOUNT）。
+ * 操作日志的对象类型（后端枚举 ASSET / TASK / UPLOAD_SESSION / ADMIN_ACCOUNT / EMPLOYEE_ACCOUNT）。
  * UPLOAD_SESSION 是「一次上传过程」，对使用者来说就是素材文件，统一显示为素材。
  */
 export const TARGET_TYPE_LABEL: Record<string, string> = {
@@ -69,6 +69,7 @@ export const TARGET_TYPE_LABEL: Record<string, string> = {
   UPLOAD_SESSION: '素材',
   TASK: '任务素材',
   ADMIN_ACCOUNT: '子账号',
+  EMPLOYEE_ACCOUNT: '员工账号',
 }
 
 export function targetTypeLabel(value: string): string {

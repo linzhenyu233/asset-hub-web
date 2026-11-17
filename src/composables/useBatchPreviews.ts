@@ -7,12 +7,12 @@ import type { BatchPreviewItem } from '../api/types'
 const PREVIEW_BATCH_LIMIT = 100
 
 export interface ThumbAsset {
-  id: string
+  assetId: string
   assetType: string
   /** 任务素材已带上子素材时直接用，省一次详情请求；未返回该字段才回查详情 */
-  children?: Array<{ id: string; assetType: string }>
+  children?: Array<{ assetId: string; assetType: string }>
   /** v2.10.1 起的任务素材封面（包内第一个可见图片/视频），优先使用 */
-  cover?: { id: string; assetType: string }
+  cover?: { assetId: string; assetType: string }
   /** 文件大小：超过阈值的大文件不自动拉缩略图，改为悬停时按需请求 */
   fileSize?: number
 }
@@ -49,8 +49,8 @@ function pickRecord<T>(source: Record<string, T>, keep: Set<string>): Record<str
 
 /** 任务素材封面：优先包内第一张图片，没有图片再取第一个视频 */
 function pickCover(
-  children: Array<{ id: string; assetType: string }> | undefined,
-): { id: string; assetType: string } | undefined {
+  children: Array<{ assetId: string; assetType: string }> | undefined,
+): { assetId: string; assetType: string } | undefined {
   if (!children || children.length === 0) return undefined
   return (
     children.find((child) => child.assetType === 'IMAGE') ??
@@ -95,7 +95,7 @@ async function loadCovers(archiveIds: string[], cache: Map<string, CoverHit>): P
           cache.set(archiveId, null)
           continue
         }
-        const hit = { assetId: cover.id, kind: (cover.assetType === 'VIDEO' ? 'VIDEO' : 'IMAGE') as ThumbKind }
+        const hit = { assetId: cover.assetId, kind: (cover.assetType === 'VIDEO' ? 'VIDEO' : 'IMAGE') as ThumbKind }
         cache.set(archiveId, hit)
         covers.push({ archiveId, ...hit })
       } catch {
@@ -159,7 +159,7 @@ export function useBatchPreviews() {
     const maxBytes = options.maxAutoBytes ?? Number.POSITIVE_INFINITY
     const skipVideo = options.skipVideo ?? false
     /** 本次列表里还存在的 ID，用来清理翻页/筛选前的旧缩略图 */
-    const keep = new Set(assets.map((asset) => asset.id))
+    const keep = new Set(assets.map((asset) => asset.assetId))
     /**
      * 已经有缩略图的不再重复申请：票据地址每次都会重新签发，
      * 同一个素材换一个 src 会让浏览器重新拉取并先清空画面，表现就是刷新时闪一下。
@@ -171,7 +171,7 @@ export function useBatchPreviews() {
       if (asset.assetType === 'ARCHIVE') return false
       if (skipVideo && asset.assetType === 'VIDEO') return false
       if (typeof asset.fileSize === 'number' && asset.fileSize > maxBytes) return false
-      return needThumb(asset.id)
+      return needThumb(asset.assetId)
     })
     const archives = assets.filter((asset) => asset.assetType === 'ARCHIVE')
 
@@ -182,16 +182,16 @@ export function useBatchPreviews() {
       const cover = archive.cover ?? pickCover(archive.children)
       if (cover) {
         const kind: ThumbKind = cover.assetType === 'VIDEO' ? 'VIDEO' : 'IMAGE'
-        coverCache.set(archive.id, { assetId: cover.id, kind })
-        inlineCovers.push({ archiveId: archive.id, assetId: cover.id, kind })
+        coverCache.set(archive.assetId, { assetId: cover.assetId, kind })
+        inlineCovers.push({ archiveId: archive.assetId, assetId: cover.assetId, kind })
         continue
       }
       // 列表返回了 children 但里面没有图片/视频：确定没有封面，不必回查
       if (archive.children) {
-        coverCache.set(archive.id, null)
+        coverCache.set(archive.assetId, null)
         continue
       }
-      needDetail.push(archive.id)
+      needDetail.push(archive.assetId)
     }
 
     const detailCovers = needDetail.length ? await loadCovers(needDetail, coverCache) : []
@@ -200,7 +200,7 @@ export function useBatchPreviews() {
 
     const targets: ThumbAsset[] = [
       ...direct,
-      ...covers.map((cover) => ({ id: cover.assetId, assetType: cover.kind })),
+      ...covers.map((cover) => ({ assetId: cover.assetId, assetType: cover.kind })),
     ]
     if (targets.length === 0) {
       // 整页都命中已有缩略图（例如手动刷新列表）：保持原样，只清理已不在列表里的条目
@@ -209,7 +209,7 @@ export function useBatchPreviews() {
     }
 
     try {
-      const requestIds = Array.from(new Set(targets.map((asset) => asset.id)))
+      const requestIds = Array.from(new Set(targets.map((asset) => asset.assetId)))
       const items: BatchPreviewItem[] = []
       for (let index = 0; index < requestIds.length; index += PREVIEW_BATCH_LIMIT) {
         const res = await adminAssetApi.previews(requestIds.slice(index, index + PREVIEW_BATCH_LIMIT))
@@ -255,7 +255,7 @@ export function useBatchPreviews() {
       }
 
       for (const asset of direct) {
-        applyThumb(asset.id, asset.id, asset.assetType === 'VIDEO' ? 'VIDEO' : 'IMAGE')
+        applyThumb(asset.assetId, asset.assetId, asset.assetType === 'VIDEO' ? 'VIDEO' : 'IMAGE')
       }
       // 任务素材用它封面子素材的票据，键仍是任务素材 ID（列表行按任务素材 ID 查缩略图）
       for (const cover of covers) {
@@ -280,24 +280,24 @@ export function useBatchPreviews() {
   /** 单条按需加载：大文件与视频在鼠标悬停时才请求，不拖慢整页 */
   async function loadOne(asset: ThumbAsset): Promise<void> {
     // 已失败的不再重试：悬停每划过一次就重发一次请求，坏素材会被反复打
-    if (thumbs.value[asset.id] || inflight.has(asset.id) || failures.value[asset.id]) return
-    inflight.add(asset.id)
+    if (thumbs.value[asset.assetId] || inflight.has(asset.assetId) || failures.value[asset.assetId]) return
+    inflight.add(asset.assetId)
     try {
-      const res = await adminAssetApi.preview(asset.id)
+      const res = await adminAssetApi.preview(asset.assetId)
       thumbs.value = {
         ...thumbs.value,
-        [asset.id]: resolveFileUrl(res.thumbnailUrl || res.url),
+        [asset.assetId]: resolveFileUrl(res.thumbnailUrl || res.url),
       }
       kinds.value = {
         ...kinds.value,
-        [asset.id]: res.thumbnailUrl
+        [asset.assetId]: res.thumbnailUrl
           ? 'IMAGE'
           : (kindByMime(res.mimeType) ?? (asset.assetType === 'VIDEO' ? 'VIDEO' : 'IMAGE')),
       }
     } catch {
-      failures.value = { ...failures.value, [asset.id]: '缩略图加载失败' }
+      failures.value = { ...failures.value, [asset.assetId]: '缩略图加载失败' }
     } finally {
-      inflight.delete(asset.id)
+      inflight.delete(asset.assetId)
     }
   }
 
@@ -321,7 +321,7 @@ export function useBatchPreviews() {
 
   /** 取某素材缩略图的渲染方式，缺省按素材类型推断 */
   function kindOf(asset: ThumbAsset): ThumbKind {
-    return kinds.value[asset.id] ?? (asset.assetType === 'VIDEO' ? 'VIDEO' : 'IMAGE')
+    return kinds.value[asset.assetId] ?? (asset.assetType === 'VIDEO' ? 'VIDEO' : 'IMAGE')
   }
 
   /** 图片缩略解码完成：由模板的 @load 调用，触发淡入 */

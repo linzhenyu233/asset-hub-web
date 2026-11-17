@@ -1,9 +1,9 @@
 # 素材中心 · 前端（Asset Hub Web）
 
-独立于 `Media-hub` 的新数据中台前端，对接「图片视频素材中台 API」v2.12.0。
+独立于 `Media-hub` 的新数据中台前端，对接「图片视频素材中台 API」v3.0.0。
 只负责页面与接口调用，**不含后端实现**。以总部管理端为主，并提供「员工视角」预览页（`/assets/:id`）。
 
-- 接口规范：`docs/openapi.json`（v2.12.0，来源 `https://dssczt.shininghouse.vip/go/sczt/v1/api-docs`）
+- 接口规范：`docs/openapi.json`（v3.0.0，来源 `https://dssczt.shininghouse.vip/go/sczt/v1/api-docs`）
 - 设计令牌：源自 Ardot 文件 734820516311557 导出的 `tokens.json`，已落到 `tailwind.config.js`（颜色/间距/阴影）与 `src/style.css`（组件类）；`tokens.json` 与设计说明文档不在本仓库
 
 ## 当前状态：预览模式（开发环境默认开启）
@@ -70,7 +70,8 @@ VITE_PROXY_TARGET=http://192.168.30.239:20011
 
 - 鉴权：Cookie `assethub_session`（`credentials: include`），同时兼容 `Authorization: Bearer`
 - 错误体：`{ "error": { "code": "...", "message": "..." } }`
-- 业务时间为北京时间 `YYYY-MM-DD HH:mm:ss`；ID 为十进制字符串
+- 业务时间为北京时间 `YYYY-MM-DD HH:mm:ss`
+- **ID 约定（v3.0.0）**：素材用 `assetId`（`ZSSJ` + 13 位数字），用户/员工/子账号用 `userId`（11 位大写字母+数字，虚拟预览身份为 `REVIEW`）；任务、上传会话、日志等内部对象仍是数字 `id`。请求路径里的 `{id}` 按对象类型分别传上述值
 - 文件走 OSS，未配置时文件类接口返回 503
 
 ## 页面与接口映射（管理端）

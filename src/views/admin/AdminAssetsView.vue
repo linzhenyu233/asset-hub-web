@@ -60,7 +60,7 @@ function needsDeferredThumb(asset: AdminAsset): boolean {
 }
 
 function ensureThumb(asset: AdminAsset) {
-  if (thumbs.value[asset.id] || !needsDeferredThumb(asset)) return
+  if (thumbs.value[asset.assetId] || !needsDeferredThumb(asset)) return
   void loadThumbOne(asset)
 }
 
@@ -87,7 +87,7 @@ const allSelected = computed(
 )
 
 function toggleAll(checked: boolean) {
-  selectedIds.value = checked ? items.value.map((item) => item.id) : []
+  selectedIds.value = checked ? items.value.map((item) => item.assetId) : []
 }
 
 function toggleOne(id: string, checked: boolean) {
@@ -162,14 +162,14 @@ const batch = reactive({
 })
 
 const selectedAssets = computed(() =>
-  items.value.filter((item) => selectedIds.value.includes(item.id)),
+  items.value.filter((item) => selectedIds.value.includes(item.assetId)),
 )
 /** 批量上架只作用于未上架且可独立上架的素材，批量下架只作用于已上架 */
 const publishableIds = computed(() =>
-  selectedAssets.value.filter((item) => canPublish(item)).map((item) => item.id),
+  selectedAssets.value.filter((item) => canPublish(item)).map((item) => item.assetId),
 )
 const offlineableIds = computed(() =>
-  selectedAssets.value.filter((item) => item.status === 'PUBLISHED').map((item) => item.id),
+  selectedAssets.value.filter((item) => item.status === 'PUBLISHED').map((item) => item.assetId),
 )
 /** 批量上架不可用时的说明：区分「都已上架」与「活动包需走任务发布」 */
 const emptyPublishHint = computed(() => {
@@ -330,9 +330,9 @@ function openConfirm(asset: AdminAsset, action: 'publish' | 'offline') {
 async function submitConfirm() {
   if (!confirmState.asset || confirmState.submitting) return
   confirmState.submitting = true
-  actionId.value = confirmState.asset.id
+  actionId.value = confirmState.asset.assetId
   try {
-    const id = confirmState.asset.id
+    const id = confirmState.asset.assetId
     if (confirmState.action === 'publish') {
       await adminAssetApi.publish(id)
       success('素材已上架')
@@ -391,7 +391,7 @@ onMounted(() => {
               v-model="filters.keyword"
               class="input pl-9"
               type="search"
-              placeholder="素材名称 / 文件名"
+              placeholder="素材名称 / 文件名 / 素材 ID"
             />
           </div>
         </div>
@@ -550,24 +550,24 @@ onMounted(() => {
           <tbody>
             <tr
               v-for="asset in items"
-              :key="asset.id"
+              :key="asset.assetId"
               class="group"
-              :class="{ 'is-selected': selectedIds.includes(asset.id) }"
+              :class="{ 'is-selected': selectedIds.includes(asset.assetId) }"
               @mouseenter="ensureThumb(asset)"
             >
               <td>
                 <div
                   class="flex items-center justify-center transition-opacity duration-fast"
                   :class="
-                    selectedIds.length > 0 || selectedIds.includes(asset.id)
+                    selectedIds.length > 0 || selectedIds.includes(asset.assetId)
                       ? 'opacity-100'
                       : 'opacity-0 group-hover:opacity-100 focus-within:opacity-100'
                   "
                 >
                   <SelectionCheckbox
-                    :checked="selectedIds.includes(asset.id)"
+                    :checked="selectedIds.includes(asset.assetId)"
                     :label="`选择素材 ${asset.name}`"
-                    @change="(checked) => toggleOne(asset.id, checked)"
+                    @change="(checked) => toggleOne(asset.assetId, checked)"
                   />
                 </div>
               </td>
@@ -578,35 +578,35 @@ onMounted(() => {
                     :class="asset.assetType === 'IMAGE' ? 'bg-thumb-rose' : 'bg-thumb-gold'"
                   >
                     <BaseIcon
-                      v-if="showPlaceholder(asset.id, kindOf(asset))"
+                      v-if="showPlaceholder(asset.assetId, kindOf(asset))"
                       :name="asset.assetType === 'IMAGE' ? 'image' : asset.assetType === 'VIDEO' ? 'video' : 'folder'"
                       :size="18"
                     />
                     <img
-                      v-if="thumbs[asset.id] && kindOf(asset) === 'IMAGE'"
-                      :src="thumbs[asset.id]"
+                      v-if="thumbs[asset.assetId] && kindOf(asset) === 'IMAGE'"
+                      :src="thumbs[asset.assetId]"
                       :alt="asset.name"
                       class="absolute inset-0 w-full h-full object-cover bg-white"
-                      :class="isLoaded(asset.id) ? 'animate-fade-in' : 'opacity-0'"
+                      :class="isLoaded(asset.assetId) ? 'animate-fade-in' : 'opacity-0'"
                       loading="lazy"
                       decoding="async"
                       fetchpriority="low"
-                      @load="markLoaded(asset.id)"
-                      @error="markBroken(asset.id)"
+                      @load="markLoaded(asset.assetId)"
+                      @error="markBroken(asset.assetId)"
                     />
                     <video
-                      v-else-if="thumbs[asset.id] && kindOf(asset) === 'VIDEO'"
-                      :src="thumbs[asset.id]"
+                      v-else-if="thumbs[asset.assetId] && kindOf(asset) === 'VIDEO'"
+                      :src="thumbs[asset.assetId]"
                       class="absolute inset-0 w-full h-full object-cover bg-neutral-900 transition-opacity duration-200"
-                      :class="frames[asset.id] ? 'opacity-100' : 'opacity-0'"
+                      :class="frames[asset.assetId] ? 'opacity-100' : 'opacity-0'"
                       muted
                       playsinline
                       preload="metadata"
-                      @loadeddata="revealFrame(asset.id, $event)"
-                      @error="markBroken(asset.id)"
+                      @loadeddata="revealFrame(asset.assetId, $event)"
+                      @error="markBroken(asset.assetId)"
                     />
                     <span
-                      v-if="kindOf(asset) === 'VIDEO' && frames[asset.id]"
+                      v-if="kindOf(asset) === 'VIDEO' && frames[asset.assetId]"
                       class="absolute inset-0 flex items-center justify-center pointer-events-none"
                     >
                       <span class="w-5 h-5 rounded-pill bg-neutral-900/60 flex items-center justify-center">
@@ -614,9 +614,9 @@ onMounted(() => {
                       </span>
                     </span>
                     <span
-                      v-if="!thumbs[asset.id] && failures[asset.id]"
+                      v-if="!thumbs[asset.assetId] && failures[asset.assetId]"
                       class="absolute bottom-0 inset-x-0 bg-neutral-900/60 text-[9px] leading-[12px] text-white text-center"
-                      :title="failures[asset.id]"
+                      :title="failures[asset.assetId]"
                     >
                       缺图
                     </span>
@@ -624,7 +624,7 @@ onMounted(() => {
                   <div class="min-w-0">
                     <p class="text-body font-medium text-neutral-900 truncate max-w-[260px] 2xl:max-w-[360px] 3xl:max-w-[460px]">{{ asset.name }}</p>
                     <p class="text-micro text-neutral-400 truncate max-w-[260px] 2xl:max-w-[360px] 3xl:max-w-[460px]">
-                      #{{ asset.id }} · {{ asset.originalFilename }}
+                      #{{ asset.assetId }} · {{ asset.originalFilename }}
                     </p>
                   </div>
                 </div>
@@ -639,7 +639,7 @@ onMounted(() => {
                   <button
                     type="button"
                     class="btn-row"
-                    @click="router.push(`/admin/assets/${asset.id}`)"
+                    @click="router.push(`/admin/assets/${asset.assetId}`)"
                   >
                     详情
                   </button>
@@ -647,7 +647,7 @@ onMounted(() => {
                     v-if="asset.status !== 'PUBLISHED'"
                     type="button"
                     class="btn-row is-primary"
-                    :disabled="actionId === asset.id || !canPublish(asset)"
+                    :disabled="actionId === asset.assetId || !canPublish(asset)"
                     :title="canPublish(asset) ? '上架该素材' : '活动包需通过任务发布流程上架'"
                     @click="openConfirm(asset, 'publish')"
                   >
@@ -657,7 +657,7 @@ onMounted(() => {
                     v-else
                     type="button"
                     class="btn-row"
-                    :disabled="actionId === asset.id"
+                    :disabled="actionId === asset.assetId"
                     @click="openConfirm(asset, 'offline')"
                   >
                     下架
@@ -665,8 +665,8 @@ onMounted(() => {
                   <button
                     type="button"
                     class="btn-row is-danger"
-                    :disabled="actionId === asset.id"
-                    @click="openDelete([asset.id])"
+                    :disabled="actionId === asset.assetId"
+                    @click="openDelete([asset.assetId])"
                   >
                     删除
                   </button>
@@ -700,7 +700,7 @@ onMounted(() => {
       <div v-if="confirmState.asset" class="rounded-card bg-neutral-50 border border-neutral-100 px-4 py-3">
         <p class="text-body font-medium text-neutral-900 truncate">{{ confirmState.asset.name }}</p>
         <p class="mt-1 text-micro text-neutral-500">
-          #{{ confirmState.asset.id }} · {{ formatBytes(confirmState.asset.fileSize) }}
+          #{{ confirmState.asset.assetId }} · {{ formatBytes(confirmState.asset.fileSize) }}
         </p>
       </div>
 

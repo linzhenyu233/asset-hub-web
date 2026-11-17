@@ -117,7 +117,7 @@ async function submitToggle() {
   if (!toggle.account || toggle.submitting) return
   toggle.submitting = true
   try {
-    await accountApi.setStatus(toggle.account.id, toggle.nextStatus)
+    await accountApi.setStatus(toggle.account.userId, toggle.nextStatus)
     success(toggle.nextStatus === 'ACTIVE' ? '账号已启用' : '账号已停用')
     toggle.open = false
     await load()
@@ -236,7 +236,7 @@ onMounted(load)
           </tr>
         </thead>
         <tbody>
-          <tr v-for="account in filtered" :key="account.id">
+          <tr v-for="account in filtered" :key="account.userId">
             <td>
               <div class="flex items-center gap-3 min-w-0">
                 <span
@@ -361,7 +361,7 @@ onMounted(load)
     >
       <div v-if="toggle.account" class="rounded-card bg-neutral-50 border border-neutral-100 px-4 py-3">
         <p class="text-body font-medium text-neutral-900 truncate">{{ toggle.account.displayName }}</p>
-        <p class="mt-1 text-micro text-neutral-500">{{ toggle.account.username }} · #{{ toggle.account.id }}</p>
+        <p class="mt-1 text-micro text-neutral-500">{{ toggle.account.username }} · #{{ toggle.account.userId }}</p>
       </div>
 
       <template #footer>

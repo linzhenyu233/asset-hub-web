@@ -25,7 +25,8 @@ export type OperationResult = 'SUCCESS' | 'FAILED'
 export type AdminAccountStatus = 'ACTIVE' | 'DISABLED'
 
 export interface User {
-  id: string
+  /** 用户唯一对外编号（v3.0.0）：11 位大写字母+数字，虚拟预览身份为 REVIEW */
+  userId: string
   displayName: string | null
   phone: string | null
   role: Role
@@ -61,7 +62,8 @@ export interface ChangePasswordInput {
 /* ---------------- 管理子账号（仅超级管理员） ---------------- */
 
 export interface AdminAccount {
-  id: string
+  /** 用户唯一对外编号（v3.0.0），启停接口使用此字段 */
+  userId: string
   username: string
   displayName: string
   status: AdminAccountStatus
@@ -91,8 +93,8 @@ export type EmployeeAccountStatus = 'ACTIVE' | 'DISABLED'
  * 不含密码、门店、建档时间与 ERP 快照；姓名 / 工号 / 手机号 / 最近登录时间缺失时为 null。
  */
 export interface EmployeeAccount {
-  /** 本系统员工用户 ID，详情与启停接口使用此字段 */
-  id: string
+  /** 用户唯一对外编号（v3.0.0），详情与启停接口使用此字段 */
+  userId: string
   /** ERP 工号，历史资料缺失时为 null */
   employeeId: string | null
   displayName: string | null
@@ -201,7 +203,8 @@ export interface CategoryResult {
 }
 
 export interface Asset {
-  id: string
+  /** 素材唯一对外编号（v3.0.0）：ZSSJ + 13 位数字 */
+  assetId: string
   name: string
   assetType: AssetType
   categoryCode: string
@@ -435,6 +438,8 @@ export interface AssetFilters {
 }
 
 export interface AdminAssetFilters extends AssetFilters {
+  /** 完整公开素材编号精确筛选（v3.0.0），与 keyword 二选一使用 */
+  assetId?: string
   status?: string
   storageProvider?: string
 }

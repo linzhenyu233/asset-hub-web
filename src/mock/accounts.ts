@@ -11,7 +11,7 @@ export interface MockAccount {
 
 
 function makeUser(input: {
-  id: string
+  userId: string
   displayName: string
   role: 'ADMIN' | 'EMPLOYEE'
   storeId: string | null
@@ -28,7 +28,7 @@ export const mockAccounts: MockAccount[] = [
     username: 'admin',
     password: 'admin123',
     user: makeUser({
-      id: '1',
+      userId: 'ADMIN000001',
       displayName: '林静怡',
       role: 'ADMIN',
       storeId: null,
@@ -41,7 +41,7 @@ export const mockAccounts: MockAccount[] = [
     username: 'ops',
     password: 'ops123',
     user: makeUser({
-      id: '2',
+      userId: 'ADMIN000002',
       displayName: '陈昊',
       role: 'ADMIN',
       storeId: null,
@@ -54,7 +54,7 @@ export const mockAccounts: MockAccount[] = [
     username: 'staff',
     password: 'staff123',
     user: makeUser({
-      id: '3',
+      userId: 'EMP00000001',
       displayName: '陈晓雯',
       role: 'EMPLOYEE',
       storeId: '11',
@@ -72,7 +72,7 @@ export const mockAdminUser: User = mockAccounts[0].user
  * 本项目没有员工端，这里只用来让演示数据看起来完整。
  */
 export const mockEmployeeUser: User = makeUser({
-  id: '3',
+  userId: 'EMP00000001',
   displayName: '陈晓雯',
   role: 'EMPLOYEE',
   storeId: '11',

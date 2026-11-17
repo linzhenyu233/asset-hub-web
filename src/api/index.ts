@@ -144,13 +144,28 @@ export const assetApi = {
 }
 
 /* ---------------- 管理员素材管理 ---------------- */
+
+/** 完整素材编号：ZSSJ + 13 位数字（v3.0.0） */
+const ASSET_ID_EXACT = /^ZSSJ\d{13}$/i
+
+/**
+ * 搜索词恰好是完整素材编号时改用 v3.0.0 的 assetId 精确筛选：
+ * 粘一整串编号来找某个素材是最常见的用法，精确参数比 keyword 模糊匹配更可靠
+ * （两者是 AND 关系，所以只传其一）。
+ */
+function assetKeywordQuery(filters: AdminAssetFilters): { keyword?: string; assetId?: string } {
+  const keyword = filters.keyword?.trim() ?? ''
+  const exact = filters.assetId || (ASSET_ID_EXACT.test(keyword) ? keyword.toUpperCase() : '')
+  return exact ? { assetId: exact } : { keyword: keyword || undefined }
+}
+
 export const adminAssetApi = {
   list: (filters: AdminAssetFilters = {}) =>
     request<AdminAssetPage>('/admin/assets', {
       query: {
         page: filters.page ?? 1,
         pageSize: filters.pageSize ?? 20,
-        keyword: filters.keyword,
+        ...assetKeywordQuery(filters),
         categoryCode: filters.categoryCode,
         assetType: filters.assetType,
         status: filters.status,

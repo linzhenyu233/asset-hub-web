@@ -121,7 +121,7 @@ onMounted(load)
       <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
         <div>
           <label class="label" for="op-operator">操作人 ID</label>
-          <input id="op-operator" v-model="filters.operatorId" class="input" type="text" placeholder="管理员 ID" />
+          <input id="op-operator" v-model="filters.operatorId" class="input" type="text" placeholder="用户 ID，如 A7K2M9Q4B6X" />
         </div>
         <div>
           <label class="label" for="op-action">操作类型</label>
@@ -144,6 +144,7 @@ onMounted(load)
             <option value="ASSET">素材</option>
             <option value="TASK">任务素材</option>
             <option value="ADMIN_ACCOUNT">子账号</option>
+            <option value="EMPLOYEE_ACCOUNT">员工账号</option>
           </select>
         </div>
         <div>

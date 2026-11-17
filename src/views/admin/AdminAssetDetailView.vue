@@ -70,7 +70,7 @@ async function unpack() {
   if (!asset.value || unpacking.value || !canUnpack.value) return
   unpacking.value = true
   try {
-    asset.value = await adminAssetApi.unpack(asset.value.id)
+    asset.value = await adminAssetApi.unpack(asset.value.assetId)
     const count = asset.value.children?.length ?? 0
     if (count > 0) success(`已解包 ${count} 个子素材`)
     else toastError('ZIP 内没有可提取的图片或视频')
@@ -117,10 +117,10 @@ async function submitConfirm() {
   confirm.submitting = true
   try {
     if (confirm.action === 'publish') {
-      await adminAssetApi.publish(asset.value.id)
+      await adminAssetApi.publish(asset.value.assetId)
       success('素材已上架')
     } else {
-      await adminAssetApi.offline(asset.value.id)
+      await adminAssetApi.offline(asset.value.assetId)
       success('素材已下架')
     }
     confirm.open = false
@@ -136,7 +136,7 @@ async function submitDelete() {
   if (!asset.value || deleteState.submitting) return
   deleteState.submitting = true
   try {
-    await adminAssetApi.remove(asset.value.id)
+    await adminAssetApi.remove(asset.value.assetId)
     success('素材已删除')
     deleteState.open = false
     router.push('/admin/assets')
@@ -309,7 +309,7 @@ onMounted(load)
             <button
               type="button"
               class="btn btn-secondary"
-              @click="router.push(`/assets/${asset.id}`)"
+              @click="router.push(`/assets/${asset.assetId}`)"
             >
               <BaseIcon name="external" :size="16" />
               员工视角
@@ -345,7 +345,7 @@ onMounted(load)
           <dl class="mt-3 divide-y divide-neutral-100">
             <div class="flex items-start justify-between gap-4 py-2.5">
               <dt class="text-caption text-neutral-500 shrink-0">素材 ID</dt>
-              <dd class="text-caption text-neutral-900 text-right font-mono">{{ asset.id }}</dd>
+              <dd class="text-caption text-neutral-900 text-right font-mono">{{ asset.assetId }}</dd>
             </div>
             <div class="flex items-start justify-between gap-4 py-2.5">
               <dt class="text-caption text-neutral-500 shrink-0">文件大小</dt>
@@ -395,7 +395,7 @@ onMounted(load)
     <AssetPreviewModal
       v-if="asset"
       :open="previewOpen"
-      :asset-id="asset.id"
+      :asset-id="asset.assetId"
       :title="asset.name"
       :preview="preview"
       admin
@@ -413,7 +413,7 @@ onMounted(load)
       <div v-if="asset" class="rounded-card bg-neutral-50 border border-neutral-100 px-4 py-3">
         <p class="text-body font-medium text-neutral-900 truncate">{{ asset.name }}</p>
         <p class="mt-1 text-micro text-neutral-500">
-          #{{ asset.id }} · {{ formatBytes(asset.fileSize) }} · {{ asset.originalFilename }}
+          #{{ asset.assetId }} · {{ formatBytes(asset.fileSize) }} · {{ asset.originalFilename }}
         </p>
       </div>
 
