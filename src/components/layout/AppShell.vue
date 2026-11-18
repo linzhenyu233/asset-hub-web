@@ -34,8 +34,8 @@ interface NavItem {
 
 const adminNav: NavItem[] = [
   { to: '/portal', label: '数据总览', icon: 'dashboard' },
-  { to: '/portal/assets', label: '素材管理', icon: 'image' },
   { to: '/portal/upload', label: '素材入库', icon: 'upload' },
+  { to: '/portal/assets', label: '素材管理', icon: 'image' },
   { to: '/portal/tasks', label: '任务管理', icon: 'clipboard' },
   { to: '/portal/download-logs', label: '下载记录', icon: 'download' },
   { to: '/portal/operation-logs', label: '操作日志', icon: 'list' },

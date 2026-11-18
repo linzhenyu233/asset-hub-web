@@ -216,7 +216,7 @@ onMounted(() => {
         @click="tab = 'admin'"
       >
         <BaseIcon name="users" :size="16" />
-        管理子账号
+        管理员子账号
       </button>
     </div>
 
