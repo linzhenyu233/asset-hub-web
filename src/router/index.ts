@@ -71,16 +71,15 @@ const router = createRouter({
           meta: { title: '操作日志', role: 'ADMIN', wide: true },
         },
         {
+          // 员工账号已并入账号管理页，旧链接直接跳过去
           path: 'portal/employees',
-          name: 'admin-employees',
-          component: () => import('../views/admin/AdminEmployeesView.vue'),
-          meta: { title: '员工账号', role: 'ADMIN', wide: true },
+          redirect: '/portal/accounts',
         },
         {
           path: 'portal/accounts',
           name: 'admin-accounts',
           component: () => import('../views/admin/AdminAccountsView.vue'),
-          meta: { title: '账号管理', role: 'ADMIN', superAdmin: true, wide: true },
+          meta: { title: '账号管理', role: 'ADMIN', wide: true },
         },
       ],
     },

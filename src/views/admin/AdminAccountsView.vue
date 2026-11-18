@@ -10,8 +10,17 @@ import BaseIcon from '../../components/ui/BaseIcon.vue'
 import BaseModal from '../../components/ui/BaseModal.vue'
 import EmptyState from '../../components/ui/EmptyState.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
+import AdminEmployeesView from './AdminEmployeesView.vue'
+import { useSession } from '../../stores/session'
 
 const { success, error: toastError } = useToast()
+const { isSuperAdmin } = useSession()
+
+/**
+ * 员工账号与管理子账号合并成一页：都叫「账号」，分成两个菜单容易点错。
+ * 员工列表对所有管理员开放，子账号管理仅超级管理员可见，所以 tab 按权限显示。
+ */
+const tab = ref<'employee' | 'admin'>('employee')
 
 const items = ref<AdminAccount[]>([])
 const loading = ref(true)
@@ -146,23 +155,72 @@ async function load() {
   }
 }
 
-onMounted(load)
+onMounted(() => {
+  // 非超管没有子账号管理权限，不请求列表，避免白打一次 403
+  if (isSuperAdmin.value) load()
+  else loading.value = false
+})
 </script>
 
 <template>
   <div class="animate-fade-up">
-    <PageHeader title="账号管理" subtitle="创建并管理总部管理子账号，仅超级管理员可操作">
+    <PageHeader title="账号管理" subtitle="门店员工账号与总部管理子账号统一在这里管理">
       <template #actions>
-        <button type="button" class="btn btn-secondary btn-sm" :disabled="loading" @click="load">
+        <button
+          v-if="tab === 'admin'"
+          type="button"
+          class="btn btn-secondary btn-sm"
+          :disabled="loading"
+          @click="load"
+        >
           <BaseIcon name="refresh" :size="16" />
           刷新
         </button>
-        <button type="button" class="btn btn-primary btn-sm" :disabled="forbidden" @click="openCreate">
+        <button
+          v-if="tab === 'admin'"
+          type="button"
+          class="btn btn-primary btn-sm"
+          :disabled="forbidden"
+          @click="openCreate"
+        >
           <BaseIcon name="plus" :size="16" />
           新建管理员子账号
         </button>
       </template>
     </PageHeader>
+
+    <!-- 员工账号 / 管理子账号切换 -->
+    <div class="flex items-center gap-2 mb-4">
+      <button
+        type="button"
+        class="flex items-center gap-2 h-10 px-4 rounded-control text-body font-medium transition-colors duration-fast"
+        :class="
+          tab === 'employee'
+            ? 'bg-brand-100 text-brand-600'
+            : 'bg-neutral-0 text-neutral-600 border border-neutral-200 hover:bg-neutral-50'
+        "
+        @click="tab = 'employee'"
+      >
+        <BaseIcon name="user" :size="16" />
+        员工账号
+      </button>
+      <button
+        v-if="isSuperAdmin"
+        type="button"
+        class="flex items-center gap-2 h-10 px-4 rounded-control text-body font-medium transition-colors duration-fast"
+        :class="
+          tab === 'admin'
+            ? 'bg-brand-100 text-brand-600'
+            : 'bg-neutral-0 text-neutral-600 border border-neutral-200 hover:bg-neutral-50'
+        "
+        @click="tab = 'admin'"
+      >
+        <BaseIcon name="users" :size="16" />
+        管理子账号
+      </button>
+    </div>
+
+    <template v-if="tab === 'admin'">
 
     <div class="card p-4 mb-4 flex flex-wrap items-center justify-between gap-3">
       <div class="flex items-center gap-2 text-caption text-neutral-500">
@@ -378,5 +436,9 @@ onMounted(load)
         </button>
       </template>
     </BaseModal>
+    </template>
+
+    <!-- 员工账号：复用原页面，嵌入模式下不渲染自己的 PageHeader -->
+    <AdminEmployeesView v-else embedded />
   </div>
 </template>

@@ -12,6 +12,9 @@ import EmptyState from '../../components/ui/EmptyState.vue'
 import PaginationBar from '../../components/ui/PaginationBar.vue'
 import StatusBadge from '../../components/ui/StatusBadge.vue'
 
+/** 嵌入「账号管理」页时不再渲染自己的 PageHeader，操作按钮下放到筛选卡 */
+defineProps<{ embedded?: boolean }>()
+
 const { success, error: toastError } = useToast()
 
 const PAGE_SIZE = 20
@@ -132,6 +135,7 @@ onMounted(load)
 <template>
   <div class="animate-fade-up">
     <PageHeader
+      v-if="!embedded"
       title="员工账号"
       subtitle="查看本系统已建档的门店员工，可停用或恢复访问；账号由员工首次登录时按 ERP 档案自动建档"
     >
@@ -173,6 +177,16 @@ onMounted(load)
             <option value="ACTIVE">已启用</option>
             <option value="DISABLED">已停用</option>
           </select>
+          <button
+            v-if="embedded"
+            type="button"
+            class="btn btn-secondary btn-sm shrink-0"
+            :disabled="loading"
+            @click="load"
+          >
+            <BaseIcon name="refresh" :size="16" />
+            刷新
+          </button>
         </div>
       </div>
     </div>

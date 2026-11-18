@@ -39,8 +39,7 @@ const adminNav: NavItem[] = [
   { to: '/portal/tasks', label: '任务管理', icon: 'clipboard' },
   { to: '/portal/download-logs', label: '下载记录', icon: 'download' },
   { to: '/portal/operation-logs', label: '操作日志', icon: 'list' },
-  { to: '/portal/employees', label: '员工账号', icon: 'user' },
-  { to: '/portal/accounts', label: '账号管理', icon: 'users', superAdminOnly: true },
+  { to: '/portal/accounts', label: '账号管理', icon: 'users' },
 ]
 
 const nav = computed(() => adminNav.filter((item) => !item.superAdminOnly || isSuperAdmin.value))

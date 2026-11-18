@@ -132,7 +132,7 @@ src/
     ui/                   图标、徽章、分页、空状态、弹窗、抽屉、Toast
   views/
     LoginView.vue
-    admin/            数据总览、素材管理、素材详情、素材入库、任务管理、任务详情、下载记录、操作日志、员工账号、账号管理
+    admin/            数据总览、素材管理、素材详情、素材入库、任务管理、任务详情、下载记录、操作日志、账号管理（含员工账号 / 管理子账号两个 tab）
   utils/format.ts
 scripts/
   contract-check.mjs  前后端契约静态检查（读 docs/openapi.json 对账）
