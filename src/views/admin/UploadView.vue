@@ -647,10 +647,12 @@ async function loadCategories(force = false) {
   categoryError.value = ''
   try {
     const res = await categoryApi.list({ force })
-    categories.value = res.items
-    if (res.items.length === 0) categoryError.value = '后端没有返回可用分类，请联系管理员'
+    // 「任务素材」（CAMPAIGN）必须走「上传活动包并发布任务」，素材入库里不提供，避免误传成普通素材包
+    const usable = res.items.filter((item) => item.code !== 'CAMPAIGN')
+    categories.value = usable
+    if (usable.length === 0) categoryError.value = '后端没有返回可用分类，请联系管理员'
     // 不再默认选中第一个分类：分类必须由用户显式点选，避免沿用默认值把视频/公司素材传错分类
-    if (material.categoryCode && !res.items.some((item) => item.code === material.categoryCode)) {
+    if (material.categoryCode && !usable.some((item) => item.code === material.categoryCode)) {
       material.categoryCode = ''
     }
   } catch (error) {
@@ -740,7 +742,7 @@ onMounted(() => {
               <p class="label">素材分类</p>
               <div
                 v-if="categories.length > 0"
-                class="grid grid-cols-2 gap-2.5 xl:grid-cols-4"
+                class="grid grid-cols-2 gap-2.5 xl:grid-cols-3"
                 role="radiogroup"
                 aria-label="素材分类"
               >
@@ -790,9 +792,9 @@ onMounted(() => {
                 </button>
               </div>
               <!-- 加载中：骨架占位，避免和「加载失败」混淆 -->
-              <div v-else-if="categoriesLoading" class="grid grid-cols-2 gap-2.5 xl:grid-cols-4">
+              <div v-else-if="categoriesLoading" class="grid grid-cols-2 gap-2.5 xl:grid-cols-3">
                 <div
-                  v-for="index in 4"
+                  v-for="index in 3"
                   :key="index"
                   class="rounded-control border border-neutral-100 px-4 py-3"
                 >
@@ -863,7 +865,7 @@ onMounted(() => {
               id="task-content"
               v-model="task.content"
               class="textarea min-h-[180px]"
-              placeholder="说明活动规则、使用场景与注意事项；员工领取即完成。"
+              placeholder="说明活动规则、使用场景与注意事项。"
               maxlength="60000"
             />
             <p class="help-text">{{ task.content.length }} / 60000</p>
@@ -881,7 +883,7 @@ onMounted(() => {
         <!-- 文件选择 -->
         <div class="mt-8 pt-6 border-t border-neutral-100">
           <div class="flex items-center justify-between gap-3">
-            <h2 class="section-title">{{ mode === 'task' ? '活动包文件' : '文件清单' }}</h2>
+            <h2 class="section-title">{{ mode === 'task' ? '任务素材' : '文件清单' }}</h2>
             <div v-if="files.length > 0" class="flex items-center gap-3">
               <span class="text-micro text-neutral-500">
                 已选文件 {{ files.length }} · 共 {{ formatBytes(totalBytes) }}
