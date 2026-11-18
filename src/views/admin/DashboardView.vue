@@ -140,9 +140,9 @@ const steps = computed(() => {
   const d = data.value
   if (!d) return []
   return [
-    { key: 'upload', label: '导入第一批素材', done: grandTotal.value > 0, to: '/admin/upload', action: '去入库' },
-    { key: 'task', label: '发布活动分发任务', done: d.taskCount > 0, to: '/admin/tasks', action: '去发布' },
-    { key: 'claim', label: '员工领取并下载', done: d.claimCount > 0, to: '/admin/download-logs', action: '看记录' },
+    { key: 'upload', label: '导入第一批素材', done: grandTotal.value > 0, to: '/portal/upload', action: '去入库' },
+    { key: 'task', label: '发布活动分发任务', done: d.taskCount > 0, to: '/portal/tasks', action: '去发布' },
+    { key: 'claim', label: '员工领取并下载', done: d.claimCount > 0, to: '/portal/download-logs', action: '看记录' },
   ]
 })
 

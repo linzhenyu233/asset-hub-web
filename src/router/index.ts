@@ -19,65 +19,65 @@ const router = createRouter({
           redirect: () => {
             const { state, isAdmin } = useSession()
             if (!state.user || !isAdmin.value) return '/login'
-            return '/admin'
+            return '/portal'
           },
         },
         {
-          path: 'admin',
+          path: 'portal',
           name: 'admin-dashboard',
           component: () => import('../views/admin/DashboardView.vue'),
           meta: { title: '数据总览', role: 'ADMIN', wide: true },
         },
         {
-          path: 'admin/assets',
+          path: 'portal/assets',
           name: 'admin-assets',
           component: () => import('../views/admin/AdminAssetsView.vue'),
           meta: { title: '素材管理', role: 'ADMIN', wide: true },
         },
         {
-          path: 'admin/assets/:id',
+          path: 'portal/assets/:id',
           name: 'admin-asset-detail',
           component: () => import('../views/admin/AdminAssetDetailView.vue'),
           meta: { title: '素材详情', role: 'ADMIN', wide: true },
         },
         {
-          path: 'admin/upload',
+          path: 'portal/upload',
           name: 'admin-upload',
           component: () => import('../views/admin/UploadView.vue'),
           meta: { title: '素材入库', role: 'ADMIN', wide: true },
         },
         {
-          path: 'admin/tasks',
+          path: 'portal/tasks',
           name: 'admin-tasks',
           component: () => import('../views/admin/AdminTasksView.vue'),
           meta: { title: '任务管理', role: 'ADMIN', wide: true },
         },
         {
-          path: 'admin/tasks/:id',
+          path: 'portal/tasks/:id',
           name: 'admin-task-detail',
           component: () => import('../views/admin/AdminTaskDetailView.vue'),
           meta: { title: '任务详情', role: 'ADMIN', wide: true },
         },
         {
-          path: 'admin/download-logs',
+          path: 'portal/download-logs',
           name: 'admin-download-logs',
           component: () => import('../views/admin/DownloadLogsView.vue'),
           meta: { title: '下载记录', role: 'ADMIN', wide: true },
         },
         {
-          path: 'admin/operation-logs',
+          path: 'portal/operation-logs',
           name: 'admin-operation-logs',
           component: () => import('../views/admin/OperationLogsView.vue'),
           meta: { title: '操作日志', role: 'ADMIN', wide: true },
         },
         {
-          path: 'admin/employees',
+          path: 'portal/employees',
           name: 'admin-employees',
           component: () => import('../views/admin/AdminEmployeesView.vue'),
           meta: { title: '员工账号', role: 'ADMIN', wide: true },
         },
         {
-          path: 'admin/accounts',
+          path: 'portal/accounts',
           name: 'admin-accounts',
           component: () => import('../views/admin/AdminAccountsView.vue'),
           meta: { title: '账号管理', role: 'ADMIN', superAdmin: true, wide: true },
@@ -105,7 +105,7 @@ router.beforeEach((to) => {
   const { state, isAdmin, isSuperAdmin } = useSession()
 
   if (to.meta.public) {
-    if (state.user && isAdmin.value) return '/admin'
+    if (state.user && isAdmin.value) return '/portal'
     return true
   }
 
@@ -116,7 +116,7 @@ router.beforeEach((to) => {
 
   // 管理子账号只有唯一超级管理员能查看
   if (to.meta.superAdmin && !isSuperAdmin.value) {
-    return '/admin'
+    return '/portal'
   }
 
   return true

@@ -165,7 +165,7 @@ onMounted(() => {
   <!-- 内容宽度由路由 meta.wide 经 AppShell 统一控制，这里不要再加 mx-auto max-w -->
   <div class="animate-fade-up">
     <div class="flex items-center justify-between gap-3 mb-5">
-      <button type="button" class="btn btn-secondary btn-sm" @click="router.push('/admin/tasks')">
+      <button type="button" class="btn btn-secondary btn-sm" @click="router.push('/portal/tasks')">
         <BaseIcon name="arrow-left" :size="16" />
         返回任务管理
       </button>
@@ -407,7 +407,7 @@ onMounted(() => {
               class="relative aspect-[4/3] overflow-hidden rounded-sm border border-neutral-100 bg-neutral-25
                 flex items-center justify-center transition-colors hover:border-brand-200"
               :title="`查看 ${child.name}`"
-              @click="router.push(`/admin/assets/${child.assetId}`)"
+              @click="router.push(`/portal/assets/${child.assetId}`)"
               @mouseenter="ensureThumb(child)"
             >
               <BaseIcon
@@ -454,7 +454,7 @@ onMounted(() => {
         <button
           type="button"
           class="btn btn-secondary w-full mt-3"
-          @click="router.push(`/admin/assets/${task.activityAsset.assetId}`)"
+          @click="router.push(`/portal/assets/${task.activityAsset.assetId}`)"
         >
           <BaseIcon name="external" :size="16" />
           管理包内素材

@@ -105,7 +105,7 @@ onMounted(load)
         <button
           type="button"
           class="btn btn-secondary btn-sm"
-          @click="router.push(asset ? `/admin/assets/${asset.assetId}` : '/admin/assets')"
+          @click="router.push(asset ? `/portal/assets/${asset.assetId}` : '/portal/assets')"
         >
           <BaseIcon name="arrow-left" :size="16" />
           返回管理端

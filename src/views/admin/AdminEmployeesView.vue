@@ -196,7 +196,7 @@ onMounted(load)
         description="当前账号无法访问员工列表，请联系超级管理员确认账号状态。"
       >
         <template #action>
-          <button type="button" class="btn btn-secondary" @click="$router.push('/admin')">返回数据总览</button>
+          <button type="button" class="btn btn-secondary" @click="$router.push('/portal')">返回数据总览</button>
         </template>
       </EmptyState>
     </div>

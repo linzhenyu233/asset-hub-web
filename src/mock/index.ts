@@ -58,6 +58,15 @@ const EXT: Record<string, string> = {
   ARCHIVE: 'zip',
 }
 
+/** 压缩包 MIME → 扩展名（v3.1.0 支持 ZIP / RAR / 7Z / TAR / GZ） */
+const ARCHIVE_EXT: Record<string, string> = {
+  'application/zip': '.zip',
+  'application/vnd.rar': '.rar',
+  'application/x-7z-compressed': '.7z',
+  'application/x-tar': '.tar',
+  'application/gzip': '.gz',
+}
+
 type SeedStatus = 'DRAFT' | 'PUBLISHED' | 'OFFLINE'
 
 interface AssetSeed {
@@ -583,7 +592,7 @@ export function mockRequest<T>(path: string, options: MockRequestOptions = {}): 
         const assetType = (session?.assetType ?? 'IMAGE') as AdminAsset['assetType']
         const categoryCode = session?.categoryCode ?? 'IMAGE'
         const mimeType = session?.mimeType || MIME[assetType] || 'image/jpeg'
-        const ext = mimeType === 'application/zip' ? '.zip' : mimeType.startsWith('video/') ? '.mp4' : '.jpg'
+        const ext = ARCHIVE_EXT[mimeType] ?? (mimeType.startsWith('video/') ? '.mp4' : '.jpg')
         const created: AdminAsset = {
           assetId,
           name,

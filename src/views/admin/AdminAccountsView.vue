@@ -193,7 +193,7 @@ onMounted(load)
         description="当前账号是管理子账号，可以继续使用素材、任务与日志等后台功能。"
       >
         <template #action>
-          <button type="button" class="btn btn-secondary" @click="$router.push('/admin')">返回数据总览</button>
+          <button type="button" class="btn btn-secondary" @click="$router.push('/portal')">返回数据总览</button>
         </template>
       </EmptyState>
     </div>
@@ -320,7 +320,6 @@ onMounted(load)
               autocomplete="new-password"
               placeholder="10-72 个字节，含字母和数字"
             />
-            <p class="help-text">10-72 个字节，需同时包含字母和数字</p>
           </div>
 
           <div>

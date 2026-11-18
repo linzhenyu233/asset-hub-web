@@ -489,7 +489,7 @@ onMounted(load)
                 <button
                   type="button"
                   class="text-left text-body text-neutral-900 hover:text-brand-600 transition-colors max-w-[280px] truncate block"
-                  @click="router.push(`/admin/assets/${item.assetId}`)"
+                  @click="router.push(`/portal/assets/${item.assetId}`)"
                 >
                   {{ item.assetName }}
                 </button>

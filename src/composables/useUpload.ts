@@ -1,5 +1,6 @@
 import { uploadApi } from '../api'
 import { ApiError } from '../api/client'
+import { archiveMimeOf, normalizeMime } from '../utils/fileType'
 import type { AssetType, CategoryCode, Session, UploadPurpose } from '../api/types'
 
 export interface UploadOptions {
@@ -14,8 +15,8 @@ export interface UploadOptions {
 }
 
 function fallbackMime(assetType: AssetType, file: File): string {
-  if (file.type) return file.type
-  if (assetType === 'ARCHIVE') return 'application/zip'
+  if (file.type) return normalizeMime(file.type)
+  if (assetType === 'ARCHIVE') return archiveMimeOf(file.name)
   if (assetType === 'IMAGE') return 'image/jpeg'
   return 'video/mp4'
 }

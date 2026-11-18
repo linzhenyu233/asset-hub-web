@@ -6,7 +6,13 @@ import type { AssetType, Category, CategoryCode } from '../../api/types'
 import { makeRequestId, runUpload } from '../../composables/useUpload'
 import { useToast } from '../../composables/useToast'
 import { formatBytes, toApiDateTime } from '../../utils/format'
-import { inspectFile, mimeLabel, type FileTypeInspection } from '../../utils/fileType'
+import {
+  archiveMimeOf,
+  inspectFile,
+  isArchiveMime,
+  mimeLabel,
+  type FileTypeInspection,
+} from '../../utils/fileType'
 import BaseIcon from '../../components/ui/BaseIcon.vue'
 import PageHeader from '../../components/ui/PageHeader.vue'
 
@@ -61,7 +67,7 @@ const errorMessage = ref('')
 /** 上一批上传结果的提示（成功后留在本页继续上传） */
 const resultMessage = ref('')
 /**
- * 入库后立即上架：创建草稿接口（POST /admin/assets）不接收状态，
+ * 入库后立即上架：创建草稿接口（POST /portal/assets）不接收状态，
  * 只能是「先建草稿、再逐个调 publish」，这里统一编排，省去入库后再去素材库一个个点。
  * 默认关闭：上架后小程序立刻可见，属于对外动作，需要显式勾选。
  */
@@ -127,13 +133,17 @@ const categoryIcon = (code: CategoryCode) =>
 const categoryTypesText = (category: Category) =>
   category.allowedAssetTypes.map((type) => typeLabel(type)).join(' · ')
 
-/** 文件选择框的可选类型：任务包只放 ZIP，素材按当前分类放开 */
+/** 压缩包可选的扩展名与 MIME（v3.1.0 起支持 ZIP / RAR / 7Z / TAR / GZ） */
+const ARCHIVE_ACCEPT =
+  '.zip,.rar,.7z,.tar,.gz,.tgz,application/zip,application/vnd.rar,application/x-7z-compressed,application/x-tar,application/gzip'
+
+/** 文件选择框的可选类型：任务包只放压缩包，素材按当前分类放开 */
 const acceptTypes = computed(() => {
-  if (mode.value === 'task') return '.zip,application/zip'
+  if (mode.value === 'task') return ARCHIVE_ACCEPT
   const accepts: string[] = []
   if (allowedTypes.value.includes('IMAGE')) accepts.push('image/*')
   if (allowedTypes.value.includes('VIDEO')) accepts.push('video/*')
-  if (allowedTypes.value.includes('ARCHIVE')) accepts.push('.zip,application/zip')
+  if (allowedTypes.value.includes('ARCHIVE')) accepts.push(ARCHIVE_ACCEPT)
   return accepts.join(',')
 })
 
@@ -182,7 +192,7 @@ function fileTypeText(item: PickedFile): string {
 }
 
 /** 素材与活动包允许的扩展名 */
-const SUPPORTED_EXT = /\.(jpe?g|png|webp|gif|bmp|heic|avif|svg|mp4|mov|webm|avi|mkv|zip)$/i
+const SUPPORTED_EXT = /\.(jpe?g|png|webp|gif|bmp|heic|avif|svg|mp4|mov|webm|avi|mkv|zip|rar|7z|tar|gz|tgz)$/i
 
 /**
  * 拖拽目录时浏览器会把文件夹本身也作为一个 File 抛出（无扩展名、无 MIME、
@@ -195,16 +205,16 @@ function isDirectoryLike(file: File): boolean {
 function mimeGuessType(mime: string, filename: string): AssetType {
   if (mime.startsWith('image/')) return 'IMAGE'
   if (mime.startsWith('video/')) return 'VIDEO'
-  if (mime === 'application/zip') return 'ARCHIVE'
+  if (isArchiveMime(mime)) return 'ARCHIVE'
   if (/\.(jpe?g|png|webp|gif|bmp|heic|avif|svg)$/i.test(filename)) return 'IMAGE'
   if (/\.(mp4|mov|webm|avi|mkv)$/i.test(filename)) return 'VIDEO'
   return 'ARCHIVE'
 }
 
-function fallbackMimeOf(type: AssetType): string {
+function fallbackMimeOf(type: AssetType, filename: string): string {
   if (type === 'IMAGE') return 'image/jpeg'
   if (type === 'VIDEO') return 'video/mp4'
-  return 'application/zip'
+  return archiveMimeOf(filename)
 }
 
 /** 逐文件重新校验：格式是否受后端支持、分类是否允许该类型 */
@@ -220,7 +230,7 @@ function validateEntry(entry: PickedFile) {
     return
   }
   if (mode.value === 'task' && entry.type !== 'ARCHIVE') {
-    entry.error = '活动包必须是压缩包（.zip），请重新选择文件'
+    entry.error = '活动包必须是压缩包（.zip / .rar / .7z / .tar / .gz），请重新选择文件'
   }
 }
 
@@ -235,7 +245,7 @@ async function inspectEntry(key: string) {
   if (!entry) return
   const fallbackType = mimeGuessType(entry.file.type, entry.file.name)
   entry.type = fallbackType
-  const result = await inspectFile(entry.file, fallbackMimeOf(fallbackType))
+  const result = await inspectFile(entry.file, fallbackMimeOf(fallbackType, entry.file.name))
   const target = files.value.find((item) => item.key === key)
   if (!target) return
   target.inspection = result
@@ -303,7 +313,7 @@ function addFiles(list: File[]) {
 
 /** 图片/视频用本地 blob 直接出缩略图，ZIP 只显示类型图标 */
 function createPreviewUrl(file: File): string {
-  if (file.type === 'application/zip' || /\.zip$/i.test(file.name)) return ''
+  if (isArchiveMime(file.type) || /\.(zip|rar|7z|tar|gz|tgz)$/i.test(file.name)) return ''
   return URL.createObjectURL(file)
 }
 
@@ -566,7 +576,7 @@ async function submitMaterial() {
 
   // 成功后留在本页：清空已入库的清单，方便接着选下一批
   clearFiles()
-  resultLink.value = { label: '查看素材库', to: '/admin/assets' }
+  resultLink.value = { label: '查看素材库', to: '/portal/assets' }
   if (publishAfterUpload.value) {
     resultMessage.value =
       publishFailed.length > 0
@@ -617,7 +627,7 @@ async function submitTask() {
     task.content = ''
     task.deadlineAt = ''
     resultMessage.value = '任务已发布，可继续发布下一个活动包，或前往任务管理查看领取情况'
-    resultLink.value = { label: '查看任务', to: `/admin/tasks/${result.taskId}` }
+    resultLink.value = { label: '查看任务', to: `/portal/tasks/${result.taskId}` }
   } catch (error) {
     file.status = 'failed'
     file.percent = 0
@@ -713,7 +723,7 @@ onMounted(() => {
           <button
             type="button"
             class="btn btn-ghost btn-sm shrink-0 text-feedback-success hover:bg-neutral-0/60"
-            @click="router.push(resultLink?.to ?? '/admin/assets')"
+            @click="router.push(resultLink?.to ?? '/portal/assets')"
           >
             <BaseIcon name="arrow-right" :size="14" />
             {{ resultLink?.label ?? '查看素材库' }}
@@ -911,7 +921,7 @@ onMounted(() => {
               <p class="max-w-[420px] text-caption text-neutral-400">
                 {{
                   mode === 'task'
-                    ? '活动包请压成压缩包（.zip），发布后自动解压出包内图片与视频'
+                    ? '活动包请压成压缩包（.zip / .rar / .7z / .tar / .gz），发布后自动解压出包内图片与视频'
                     : '支持图片、视频与压缩包，可多选，也可以把整个文件夹拖进来'
                 }}
               </p>
@@ -1062,7 +1072,7 @@ onMounted(() => {
             type="button"
             class="btn btn-secondary btn-lg px-6"
             :disabled="submitting"
-            @click="router.push(mode === 'material' ? '/admin/assets' : '/admin/tasks')"
+            @click="router.push(mode === 'material' ? '/portal/assets' : '/portal/tasks')"
           >
             取消
           </button>

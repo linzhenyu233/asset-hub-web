@@ -64,7 +64,7 @@ function redirectAfterLogin() {
     router.replace(redirect)
     return
   }
-  router.replace('/admin')
+  router.replace('/portal')
 }
 </script>
 
@@ -108,7 +108,7 @@ function redirectAfterLogin() {
       <div class="relative z-10 flex flex-col w-full px-12 py-12">
         <div class="flex items-center gap-3">
           <BrandMark variant="white" :size="34" />
-          <p class="text-white text-h3 font-medium">钻石世家云素材中台</p>
+          <p class="text-white text-h3 font-medium">钻石世家云素材中心</p>
         </div>
 
         <!-- 标识与标语整体下移，在剩余空间内垂直居中 -->
@@ -121,11 +121,22 @@ function redirectAfterLogin() {
             class="w-[440px] max-w-full"
           />
 
-          <h1 class="mt-7 text-[20px] leading-[38px] font-bold text-white">欢迎使用钻石世家云素材中台</h1>
+          <h1 class="mt-7 text-[20px] leading-[38px] font-bold text-white">欢迎使用钻石世家云素材中心</h1>
 
-          <div class="mt-6 flex items-center gap-3">
-            <span class="h-px w-8 bg-white/40" />
-            <p class="text-caption text-white/70">图片 · 视频 · 任务素材 · 统一授权</p>
+          <!-- 三条能力，填空但只陈述真实范围 -->
+          <div class="mt-8 w-[440px] border-t border-white/15">
+            <div class="flex items-baseline gap-4 border-b border-white/15 py-3.5">
+              <span class="w-[76px] shrink-0 text-[12px] text-white/55">素材管理</span>
+              <span class="text-[13px] leading-[20px] text-white/90">图片、视频、任务素材统一入库</span>
+            </div>
+            <div class="flex items-baseline gap-4 border-b border-white/15 py-3.5">
+              <span class="w-[76px] shrink-0 text-[12px] text-white/55">精准分发</span>
+              <span class="text-[13px] leading-[20px] text-white/90">按角色与门店授权可见范围</span>
+            </div>
+            <div class="flex items-baseline gap-4 py-3.5">
+              <span class="w-[76px] shrink-0 text-[12px] text-white/55">下载追溯</span>
+              <span class="text-[13px] leading-[20px] text-white/90">谁在何时下载了什么，全程留痕</span>
+            </div>
           </div>
         </div>
 

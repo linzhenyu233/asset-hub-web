@@ -33,14 +33,14 @@ interface NavItem {
 }
 
 const adminNav: NavItem[] = [
-  { to: '/admin', label: '数据总览', icon: 'dashboard' },
-  { to: '/admin/assets', label: '素材管理', icon: 'image' },
-  { to: '/admin/upload', label: '素材入库', icon: 'upload' },
-  { to: '/admin/tasks', label: '任务管理', icon: 'clipboard' },
-  { to: '/admin/download-logs', label: '下载记录', icon: 'download' },
-  { to: '/admin/operation-logs', label: '操作日志', icon: 'list' },
-  { to: '/admin/employees', label: '员工账号', icon: 'user' },
-  { to: '/admin/accounts', label: '账号管理', icon: 'users', superAdminOnly: true },
+  { to: '/portal', label: '数据总览', icon: 'dashboard' },
+  { to: '/portal/assets', label: '素材管理', icon: 'image' },
+  { to: '/portal/upload', label: '素材入库', icon: 'upload' },
+  { to: '/portal/tasks', label: '任务管理', icon: 'clipboard' },
+  { to: '/portal/download-logs', label: '下载记录', icon: 'download' },
+  { to: '/portal/operation-logs', label: '操作日志', icon: 'list' },
+  { to: '/portal/employees', label: '员工账号', icon: 'user' },
+  { to: '/portal/accounts', label: '账号管理', icon: 'users', superAdminOnly: true },
 ]
 
 const nav = computed(() => adminNav.filter((item) => !item.superAdminOnly || isSuperAdmin.value))
@@ -78,7 +78,7 @@ const pageTitle = computed(() => (route.meta.title as string) || '素材中心')
 const isWide = computed(() => route.meta.wide === true)
 
 function isActive(to: string): boolean {
-  if (to === '/admin') return route.path === '/admin'
+  if (to === '/portal') return route.path === '/portal'
   return route.path === to || route.path.startsWith(`${to}/`)
 }
 

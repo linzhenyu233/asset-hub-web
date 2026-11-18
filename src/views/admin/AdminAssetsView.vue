@@ -373,7 +373,7 @@ onMounted(() => {
           <BaseIcon name="refresh" :size="16" />
           刷新
         </button>
-        <button type="button" class="btn btn-primary btn-sm" @click="router.push('/admin/upload')">
+        <button type="button" class="btn btn-primary btn-sm" @click="router.push('/portal/upload')">
           <BaseIcon name="plus" :size="16" />
           新建素材
         </button>
@@ -466,7 +466,7 @@ onMounted(() => {
             <button v-if="hasFilter" type="button" class="btn btn-secondary" @click="resetFilters">
               清空筛选
             </button>
-            <button type="button" class="btn btn-primary" @click="router.push('/admin/upload')">
+            <button type="button" class="btn btn-primary" @click="router.push('/portal/upload')">
               新建素材
             </button>
           </div>
@@ -643,7 +643,7 @@ onMounted(() => {
                   <button
                     type="button"
                     class="btn-row"
-                    @click="router.push(`/admin/assets/${asset.assetId}`)"
+                    @click="router.push(`/portal/assets/${asset.assetId}`)"
                   >
                     详情
                   </button>

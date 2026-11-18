@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import test from 'node:test'
-import { inspectFile, sniffMimeType } from './fileType.ts'
+import { inspectFile, normalizeMime, sniffMimeType } from './fileType.ts'
 
 const bytes = (...values: number[]): Uint8Array => new Uint8Array(values)
 
@@ -40,5 +40,31 @@ test('真实类型与声明不符时标记 mismatched，仅提示不拦上传', 
   assert.equal(result.actual, 'image/png')
   assert.equal(result.mimeType, 'image/png')
   assert.equal(result.mismatched, true)
+  assert.equal(result.unsupported, false)
+})
+
+test('v3.1.0 压缩包：RAR / 7Z / GZ / TAR 能识别，非规范 MIME 会归一', async () => {
+  assert.equal(sniffMimeType(bytes(0x52, 0x61, 0x72, 0x21, 0x1a, 0x07, 0x00)), 'application/vnd.rar')
+  assert.equal(sniffMimeType(bytes(0x37, 0x7a, 0xbc, 0xaf, 0x27, 0x1c)), 'application/x-7z-compressed')
+  // .tar.gz / .tgz 的字节头就是 GZIP
+  assert.equal(sniffMimeType(bytes(0x1f, 0x8b, 0x08, 0x00)), 'application/gzip')
+
+  // TAR 的 'ustar' 标识在偏移 257，前 64 字节读不到
+  const tar = new Uint8Array(300)
+  ;[...'ustar'].forEach((char, index) => {
+    tar[257 + index] = char.charCodeAt(0)
+  })
+  assert.equal(sniffMimeType(tar), 'application/x-tar')
+
+  assert.equal(normalizeMime('application/x-rar-compressed'), 'application/vnd.rar')
+  assert.equal(normalizeMime('application/x-gzip'), 'application/gzip')
+
+  // 浏览器声明 x-rar-compressed 时不该被当成「声明与真实不符」
+  const rar = new File([bytes(0x52, 0x61, 0x72, 0x21, 0x1a, 0x07, 0x00)], 'a.rar', {
+    type: 'application/x-rar-compressed',
+  })
+  const result = await inspectFile(rar, 'application/zip')
+  assert.equal(result.mimeType, 'application/vnd.rar')
+  assert.equal(result.mismatched, false)
   assert.equal(result.unsupported, false)
 })

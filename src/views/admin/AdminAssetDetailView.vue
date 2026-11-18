@@ -140,13 +140,13 @@ async function submitDelete() {
     await adminAssetApi.remove(asset.value.assetId)
     success('素材已删除')
     deleteState.open = false
-    router.push('/admin/assets')
+    router.push('/portal/assets')
   } catch (error) {
     if (error instanceof ApiError && error.status === 409) {
       toastError(error.message || '素材已关联任务，请先下架而不删除')
     } else if (error instanceof ApiError && error.status === 404) {
       toastError('素材已不存在')
-      router.push('/admin/assets')
+      router.push('/portal/assets')
     } else {
       toastError(error instanceof Error ? error.message : '删除失败，请重试')
     }
@@ -162,7 +162,7 @@ onMounted(load)
   <!-- 内容宽度由路由 meta.wide 经 AppShell 统一控制，这里不要再加 mx-auto max-w -->
   <div class="animate-fade-up">
     <div class="flex items-center justify-between gap-3 mb-5">
-      <button type="button" class="btn btn-secondary btn-sm" @click="router.push('/admin/assets')">
+      <button type="button" class="btn btn-secondary btn-sm" @click="router.push('/portal/assets')">
         <BaseIcon name="arrow-left" :size="16" />
         返回素材管理
       </button>

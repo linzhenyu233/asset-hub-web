@@ -1,9 +1,9 @@
 # 素材中心 · 前端（Asset Hub Web）
 
-独立于 `Media-hub` 的新数据中台前端，对接「图片视频素材中台 API」v3.0.0。
+独立于 `Media-hub` 的新数据中台前端，对接「图片视频素材中台 API」v3.1.0。
 只负责页面与接口调用，**不含后端实现**。以总部管理端为主，并提供「员工视角」预览页（`/assets/:id`）。
 
-- 接口规范：`docs/openapi.json`（v3.0.0，来源 `https://dssczt.shininghouse.vip/go/sczt/v1/api-docs`）
+- 接口规范：`docs/openapi.json`（v3.1.0，来源 `https://dssczt.shininghouse.vip/go/sczt/v1/api-docs`）
 - 设计令牌：源自 Ardot 文件 734820516311557 导出的 `tokens.json`，已落到 `tailwind.config.js`（颜色/间距/阴影）与 `src/style.css`（组件类）；`tokens.json` 与设计说明文档不在本仓库
 
 ## 当前状态：预览模式（开发环境默认开启）
@@ -143,6 +143,7 @@ scripts/
 - **上传**：创建会话 → 以二进制流 PUT（XHR 进度条）→ 查询阶段 → 提交校验 → 创建素材草稿 / 发布任务
 - **下载**：先申请短时票据，再跳转 `/api/files/{ticket}` 由浏览器保存；每次申请都会记录
 - **幂等**：上传会话、发布任务、下载申请都使用 `requestId` 去重
-- **状态**：素材 `DRAFT / PUBLISHED / OFFLINE`；任务包固定为 `CAMPAIGN + ARCHIVE`（只接受 ZIP）
+- **状态**：素材 `DRAFT / PUBLISHED / OFFLINE`；任务包固定为 `CAMPAIGN + ARCHIVE`
+- **压缩包（v3.1.0）**：ZIP / RAR / 7Z / TAR / GZ（`.tar.gz`、`.tgz`、单文件 `.gz`）；上传前按文件头识别真实类型，浏览器给的 `application/x-rar-compressed` 等别名会归一成规范 MIME
 - **四态**：所有数据页均覆盖 Loading（骨架）/ Empty / Error（可重试）/ 权限受限
 - **契约检查**：`node scripts/contract-check.mjs`，对账 `docs/openapi.json` 与前端调用点（路径/方法、query 参数、请求体字段、页面枚举值），发现问题退出码为 1

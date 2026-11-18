@@ -71,7 +71,7 @@ onMounted(load)
           <BaseIcon name="refresh" :size="16" />
           刷新
         </button>
-        <button type="button" class="btn btn-primary btn-sm" @click="router.push('/admin/upload?mode=task')">
+        <button type="button" class="btn btn-primary btn-sm" @click="router.push('/portal/upload?mode=task')">
           <BaseIcon name="plus" :size="16" />
           发布任务
         </button>
@@ -109,7 +109,7 @@ onMounted(load)
         :description="hasFilter ? '没有匹配的任务，试试其他关键词。' : '发布第一个活动任务，让员工在小程序里领取素材。'"
       >
         <template #action>
-          <button type="button" class="btn btn-primary" @click="router.push('/admin/upload?mode=task')">
+          <button type="button" class="btn btn-primary" @click="router.push('/portal/upload?mode=task')">
             发布任务
           </button>
         </template>
@@ -141,7 +141,7 @@ onMounted(load)
               </td>
               <td class="text-caption whitespace-nowrap">{{ formatDateTime(item.publishedAt) }}</td>
               <td>
-                <button type="button" class="btn-row" @click="router.push(`/admin/tasks/${item.id}`)">
+                <button type="button" class="btn-row" @click="router.push(`/portal/tasks/${item.id}`)">
                   详情
                 </button>
               </td>

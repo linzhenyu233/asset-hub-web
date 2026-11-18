@@ -4,6 +4,15 @@
  * 因此上传前必须按真实类型声明，而不是只信浏览器按扩展名给出的 file.type。
  */
 
+/** 压缩包 MIME（v3.1.0：ZIP / RAR / 7Z / TAR / GZ） */
+export const ARCHIVE_MIME = [
+  'application/zip',
+  'application/vnd.rar',
+  'application/x-7z-compressed',
+  'application/x-tar',
+  'application/gzip',
+]
+
 /** 后端允许存储/预览的类型 */
 export const SUPPORTED_MIME = [
   'image/jpeg',
@@ -13,7 +22,7 @@ export const SUPPORTED_MIME = [
   'video/mp4',
   'video/quicktime',
   'video/webm',
-  'application/zip',
+  ...ARCHIVE_MIME,
 ]
 
 export const MIME_LABEL: Record<string, string> = {
@@ -30,7 +39,38 @@ export const MIME_LABEL: Record<string, string> = {
   'video/webm': 'WebM 视频',
   'video/x-msvideo': 'AVI 视频',
   'application/zip': '压缩包',
+  'application/vnd.rar': 'RAR 压缩包',
+  'application/x-7z-compressed': '7Z 压缩包',
+  'application/x-tar': 'TAR 压缩包',
+  'application/gzip': 'GZ 压缩包',
   'application/pdf': 'PDF 文档',
+}
+
+/** 浏览器/系统常给出的非规范 MIME，统一成后端认的规范值 */
+const MIME_ALIASES: Record<string, string> = {
+  'application/x-zip-compressed': 'application/zip',
+  'application/x-rar-compressed': 'application/vnd.rar',
+  'application/x-rar': 'application/vnd.rar',
+  'application/x-gzip': 'application/gzip',
+  'application/x-compressed-tar': 'application/x-tar',
+}
+
+export function normalizeMime(mime: string): string {
+  return MIME_ALIASES[mime.toLowerCase()] ?? mime
+}
+
+/** 是否是压缩包类型（ZIP / RAR / 7Z / TAR / GZ） */
+export function isArchiveMime(mime: string): boolean {
+  return ARCHIVE_MIME.includes(normalizeMime(mime))
+}
+
+/** 按扩展名推断压缩包 MIME，认不出时按 ZIP 处理 */
+export function archiveMimeOf(filename: string): string {
+  if (/\.(rar)$/i.test(filename)) return 'application/vnd.rar'
+  if (/\.(7z)$/i.test(filename)) return 'application/x-7z-compressed'
+  if (/\.(tar)$/i.test(filename)) return 'application/x-tar'
+  if (/\.(gz|tgz|tar\.gz)$/i.test(filename)) return 'application/gzip'
+  return 'application/zip'
 }
 
 export function mimeLabel(mime: string): string {
@@ -77,6 +117,29 @@ export function sniffMimeType(head: Uint8Array): string | null {
   if (head[0] === 0x50 && head[1] === 0x4b && (head[2] === 3 || head[2] === 5 || head[2] === 7)) {
     return 'application/zip'
   }
+
+  // RAR: Rar!\x1A\x07（4.x 与 5.x 通用前缀）
+  if (ascii(head, 0, 4) === 'Rar!' && head[4] === 0x1a && head[5] === 0x07) {
+    return 'application/vnd.rar'
+  }
+
+  // 7Z: 37 7A BC AF 27 1C
+  if (
+    head[0] === 0x37 &&
+    head[1] === 0x7a &&
+    head[2] === 0xbc &&
+    head[3] === 0xaf &&
+    head[4] === 0x27 &&
+    head[5] === 0x1c
+  ) {
+    return 'application/x-7z-compressed'
+  }
+
+  // GZIP: 1F 8B（.gz / .tar.gz）
+  if (head[0] === 0x1f && head[1] === 0x8b) return 'application/gzip'
+
+  // TAR: 偏移 257 处为 'ustar'
+  if (head.length >= 262 && ascii(head, 257, 262) === 'ustar') return 'application/x-tar'
 
   // PDF: %PDF
   if (ascii(head, 0, 4) === '%PDF') return 'application/pdf'
@@ -126,15 +189,17 @@ export interface FileTypeInspection {
 export async function inspectFile(file: File, fallback: string): Promise<FileTypeInspection> {
   let actual: string | null = null
   try {
-    const buffer = await file.slice(0, 64).arrayBuffer()
+    // 读 512 字节：TAR 的 'ustar' 标识在偏移 257，64 字节读不到
+    const buffer = await file.slice(0, 512).arrayBuffer()
     actual = sniffMimeType(new Uint8Array(buffer))
   } catch {
     actual = null
   }
 
-  const declared = file.type || ''
+  // 浏览器给的可能是 application/x-rar-compressed 这类别名，先归一成后端认的规范 MIME
+  const declared = normalizeMime(file.type || '')
   // 浏览器给不出类型时 declared 是空串，?? 不会兜底（'' 不是 null），用 || 才会落到 fallback
-  const mimeType = actual ?? (declared || fallback)
+  const mimeType = actual ?? (declared || normalizeMime(fallback))
   return {
     declared,
     actual,
