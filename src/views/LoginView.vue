@@ -113,13 +113,29 @@ function redirectAfterLogin() {
 
         <!-- 标识与标语整体下移，在剩余空间内垂直居中 -->
         <div class="my-auto">
-          <img
-            src="/brand/logo-full-white-v2.png"
-            alt="SHINING HOUSE · KEEP LOVING KEEP SHINING"
-            width="440"
-            height="181"
-            class="w-[440px] max-w-full"
-          />
+          <!--
+            原图底部自带「KEEP LOVING KEEP SHINING」标语：容器保持原图高度（440×176），
+            logo 部分裁到 148px 去掉旧标语，新标语绝对定位回原位置，整体占位与下方间距都不变。
+            设计提供纯 logo 图后可直接去掉这层裁切与绝对定位。
+          -->
+          <div class="relative w-[440px] max-w-full" style="height: 176px">
+            <div class="overflow-hidden" style="height: 148px">
+              <img
+                src="/brand/logo-full-white-v2.png"
+                alt="SHINING HOUSE"
+                width="440"
+                height="181"
+                class="w-[440px] max-w-full"
+              />
+            </div>
+            <!-- 字体栈显式指定 Times New Roman：默认 font-serif 在 Windows 会落到 Georgia，笔画比原图粗 -->
+            <p
+              class="absolute inset-x-0 bottom-[6px] text-center text-[12px] leading-none uppercase tracking-[0.3em] text-white/85"
+              style="font-family: 'Times New Roman', Times, serif"
+            >
+              Keep Chasing Keep Shining
+            </p>
+          </div>
 
           <h1 class="mt-7 text-[20px] leading-[38px] font-bold text-white">欢迎使用钻石世家云素材中心</h1>
 
